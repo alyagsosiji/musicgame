@@ -62,7 +62,6 @@ body, html {
 }
 .glow-text.small { font-size: 1.6rem; margin-bottom: 12px; }
 
-/* 정렬 구조 보강 */
 .auth-box, .ranking-container, .modal-content, .popup-content {
     background: rgba(10, 6, 24, 0.9);
     border: 1px solid rgba(138, 43, 226, 0.6);
@@ -147,7 +146,6 @@ button:hover {
     text-decoration: underline;
 }
 
-/* 로비 상단 바 레이아웃 정렬 최적화 */
 .lobby-header {
     width: 100%;
     max-width: 850px;
@@ -183,7 +181,6 @@ table { width: 100%; border-collapse: collapse; text-align: left; }
 th, td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; }
 th { color: #ff00ff; }
 
-/* 인게임 상단 제어 바 스타일 */
 .game-header-bar {
     position: absolute;
     top: 15px;
