@@ -45,7 +45,6 @@ let isAdmin = false;
 let currentPlatform = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? "Mobile" : "Desktop";
 let isAuthActionLock = false; 
 
-// [수정] 누락되어 게임 화면 프리징을 일으키던 4개의 연산 전역 변수 정상 안착
 let activeNotes = []; 
 let chartData = [];
 let selectedDifficulty = "easy";
@@ -360,7 +359,7 @@ function startGame(diff) {
     perfectCount = 0; greatCount = 0; goodCount = 0; missCount = 0;
 
     hitParticles = [];
-    activeNotes = []; // [수정 완료] 인게임 진입 및 재시작 시 노트 대기열 안전 리셋
+    activeNotes = []; 
     lanePressed = [false, false, false, false];
     chartData = JSON.parse(rmChartSafely(charts[selectedDifficulty] || []));
 
@@ -395,6 +394,7 @@ function triggerAudioAndLoop() {
     gameLoop();
 }
 
+// [수정] 중도 하차 시 백그라운드 연산 루프가 데이터베이스를 타격하지 않도록 완벽 분리
 function exitGameMidway() {
     showCustomAlert("중도 하차", "진행 중인 모든 기록을 초기화하고 은하 대기실로 귀환하시겠습니까?", true, () => {
         gameActive = false;
@@ -402,6 +402,9 @@ function exitGameMidway() {
             cancelAnimationFrame(animationId);
             animationId = null;
         }
+        chartData = [];  // 하차 즉시 채보 잔여 데이터 증발 처리
+        activeNotes = []; // 판정선 메모리 소거
+        
         const audio = document.getElementById("game-audio");
         audio.pause();
         audio.currentTime = 0;
@@ -468,8 +471,8 @@ function gameLoop() {
         ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
     }
 
-    // [수정 완벽 방어] 오디오가 완전히 끝났거나, 음악 오류 발생 시 노취 대기열이 비어있으면 안전하게 판정 종료로 진입
-    if (audio.ended || (chartData.length === 0 && activeNotes.length === 0)) {
+    // [핵심 버그 수정] 곡 중간 프리징 및 강제 결과창 갱신 오루프 제거. 오직 오디오 완전 완곡 시에만 종료 판정을 진행함.
+    if (audio.ended) {
         finishGame();
         return;
     }
