@@ -1,4 +1,4 @@
-// 1. 암호화(인코딩)된 Firebase 구성 정보
+// 1. 암호화(인코딩)된 Firebase 구성 정보 (오타 완벽 복구)
 const _skyHorizonConfig = {
     ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
     ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=",
@@ -23,7 +23,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 📢 [수정 가능 영역] 직접 작성하는 코드 기반 공지사항 시트 데이터베이스
+// 📢 코드 직접 수정형 공지사항 시트 데이터베이스
 const horizonNotices = [
     {
         date: "2026-05-22",
@@ -40,8 +40,6 @@ const horizonNotices = [
         title: "🔒 여행자 개인정보 안심 보안 수집 프로토콜",
         content: "본 시스템은 가입 시 실제 이메일을 일절 요구하거나 수집하지 않으며 오직 닉네임 해싱 가상 세션 식별 키로만 매핑됩니다. 따라서 비밀번호 분실 시 복구가 원천적으로 불가하오니 분실에 각별히 주의하시기 바랍니다."
     }
-    // 💡 여기에 추가하고 싶다면 아래 주석을 풀고 형식에 맞춰 추가하시면 됩니다:
-    // , { date: "2026-XX-XX", title: "제목", content: "내용" }
 ];
 
 // 브라우저 내부 기능 제어 잠금
@@ -88,8 +86,7 @@ let isPaused = false;
 let pauseStartTime = 0;        
 let hitRings = [];             
 
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+let canvas, ctx;
 let animationId = null;
 let gameActive = false;
 let score = 0, combo = 0, maxCombo = 0;
@@ -230,6 +227,7 @@ const charts = {
 })();
 
 function preCacheGradients() {
+    if (!canvas) return;
     cachedNoteGradients = lanes.map(x => {
         let g = ctx.createLinearGradient(x - 40, 0, x + 40, 0);
         g.addColorStop(0, "#ff00ff");
@@ -288,13 +286,10 @@ function togglePauseGame() {
     }
 }
 
-// 📢 공지사항 모달 제어 및 실시간 빌드 엔진 함수 파트
 function openNoticeModal() {
     const container = document.getElementById("notice-list-container");
     if (container) {
-        container.innerHTML = ""; // 초기화
-        
-        // 코드 내부의 horizonNotices 배열 순회하며 다이나믹 돔 렌더링
+        container.innerHTML = ""; 
         horizonNotices.forEach(notice => {
             container.innerHTML += `
                 <div style="background: rgba(138, 43, 226, 0.08); border: 1px solid rgba(0, 255, 255, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 12px; box-sizing: border-box;">
@@ -307,7 +302,6 @@ function openNoticeModal() {
             `;
         });
     }
-    
     const noticeModal = document.getElementById("notice-modal");
     if (noticeModal) noticeModal.style.display = "flex";
 }
@@ -317,7 +311,13 @@ function closeNoticeModal() {
     if (noticeModal) noticeModal.style.display = "none";
 }
 
+// 🔒 안전 진입 프로토콜 (DOM 로딩 안전 가드 레이어)
 document.addEventListener("DOMContentLoaded", () => {
+    canvas = document.getElementById("gameCanvas");
+    if (canvas) ctx = canvas.getContext("2d");
+    
+    preCacheGradients();
+
     const volSlider = document.getElementById("volume-slider");
     if (volSlider) {
         volSlider.value = gameVolume;
@@ -327,6 +327,25 @@ document.addEventListener("DOMContentLoaded", () => {
             if (audio) audio.volume = gameVolume;
         });
     }
+
+    const confirmBtn = document.getElementById("popup-confirm-btn");
+    if (confirmBtn) confirmBtn.onclick = () => closeCustomPopup(true);
+    
+    const cancelBtn = document.getElementById("popup-cancel-btn");
+    if (cancelBtn) cancelBtn.onclick = () => closeCustomPopup(false);
+
+    document.querySelectorAll(".touch-zone").forEach(z => {
+        const currentLane = keyMap[z.getAttribute("data-key")];
+        z.addEventListener("touchstart", e => {
+            e.preventDefault();
+            lanePressed[currentLane] = true;
+            verifyHit(currentLane);
+        });
+        z.addEventListener("touchend", e => {
+            e.preventDefault();
+            lanePressed[currentLane] = false;
+        });
+    });
 });
 
 function toggleAuthMode() {
@@ -349,6 +368,7 @@ function toggleAuthMode() {
     }
 }
 
+// 🔒 [요청사항 반영] 체크 미동의 시 자체 커스텀 팝업으로 유도 기능 탑재
 async function handleAuth() {
     const rawId = document.getElementById("auth-id").value.trim();
     const rawPw = document.getElementById("auth-pw").value.trim();
@@ -358,7 +378,8 @@ async function handleAuth() {
     if (isSignUpMode) {
         const tosCheckbox = document.getElementById("tos-checkbox");
         if (tosCheckbox && !tosCheckbox.checked) {
-            return showCustomAlert("약관 동의 필요", "가입을 진행하려면 이용약관에 동의하셔야 합니다.", false, () => {
+            // 자체 설계 알림창 시스템을 연동하여 이용약관 확인창을 띄우고 바로 모달을 열어줌
+            return showCustomAlert("약관 동의 필요", "회원가입을 진행하려면 이용약관을 확인하고 동의해 주세요.", false, () => {
                 openTosModal(); 
             });
         }
@@ -477,6 +498,7 @@ function startRealtimeRankings() {
         });
 }
 
+// 오타 정밀 교정 파트 (c.classList)
 function switchAdminTab(type) {
     document.querySelectorAll(".admin-tab-content").forEach(c => c.classList.remove("active"));
     if(type === 'rank') document.getElementById("admin-rank-section").classList.add("active");
@@ -553,12 +575,67 @@ function requestBanUser(id) {
 }
 
 function fitCanvasSize() {
+    if (!canvas) return;
     canvas.width = 420;
     canvas.height = 560;
     targetY = canvas.height * 0.85;
     preCacheGradients(); 
 }
 window.addEventListener('resize', fitCanvasSize);
+
+// SHA-256 암호화
+async function secureHash(string) {
+    if (window.crypto && crypto.subtle && crypto.subtle.digest) {
+        try {
+            const utf8 = new TextEncoder().encode(string);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {}
+    }
+    const rotateRight = (n, x) => (n >>> x) | (n << (32 - x));
+    const K = [
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ];
+    let H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    const words = [];
+    const ascii = unescape(encodeURIComponent(string));
+    for (let i = 0; i < ascii.length; i++) words[i >> 2] |= ascii.charCodeAt(i) << (24 - (i % 4) * 8);
+    const bits = ascii.length * 8;
+    words[ascii.length >> 2] |= 0x80 << (24 - (ascii.length % 4) * 8);
+    while ((words.length * 32) % 512 !== 448) words.push(0);
+    words.push(Math.floor(bits / 4294967296)); words.push(bits & 0xffffffff);
+    
+    for (let i = 0; i < words.length; i += 16) {
+        let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+        const stage = new Array(64);
+        for (let j = 0; j < 64; j++) {
+            if (j < 16) stage[j] = words[i + j];
+            else {
+                const s0 = rotateRight(stage[j - 15], 7) ^ rotateRight(stage[j - 15], 18) ^ (stage[j - 15] >>> 3);
+                const s1 = rotateRight(stage[j - 2], 17) ^ rotateRight(stage[j - 2], 19) ^ (stage[j - 2] >>> 10);
+                stage[j] = (stage[j - 16] + s0 + stage[j - 7] + s1) & 0xffffffff;
+            }
+            const ch = (e & f) ^ (~e & g);
+            const maj = (a & b) ^ (a & c) ^ (b & c);
+            const S0 = rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22);
+            const S1 = rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25);
+            const t1 = (h + S1 + ch + K[j] + stage[j]) & 0xffffffff;
+            const t2 = (S0 + maj) & 0xffffffff;
+            h = g; g = f; f = e; e = (d + t1) & 0xffffffff; d = c; c = b; b = a; a = (t1 + t2) & 0xffffffff;
+        }
+        H[0] = (H[0] + a) & 0xffffffff; H[1] = (H[1] + b) & 0xffffffff; H[2] = (H[2] + c) & 0xffffffff; H[3] = (H[3] + d) & 0xffffffff;
+        H[4] = (H[4] + e) & 0xffffffff; H[5] = (H[5] + f) & 0xffffffff; H[6] = (H[6] + g) & 0xffffffff; H[7] = (H[7] + h) & 0xffffffff;
+    }
+    return H.map(h => (h >>> 0).toString(16).padStart(8, '0')).join('');
+}
 
 function startGame(diff) {
     if (animationId) {
@@ -612,21 +689,26 @@ function triggerAudioAndLoop() {
     gameActive = true;
     isPaused = false;
     const audio = document.getElementById("game-audio");
-    audio.currentTime = 0;
-    audio.volume = gameVolume;
+    if(audio) audio.currentTime = 0;
+    if(audio) audio.volume = gameVolume;
     
-    audio.play().then(() => {
-        lastAudioTime = audio.currentTime;
+    if(audio) {
+        audio.play().then(() => {
+            lastAudioTime = audio.currentTime;
+            lastTimeSync = performance.now();
+            currentAudioTime = audio.currentTime;
+            gameLoop();
+        }).catch((err) => { 
+            console.warn(err); 
+            lastAudioTime = 0;
+            lastTimeSync = performance.now();
+            currentAudioTime = 0;
+            gameLoop();
+        });
+    } else {
         lastTimeSync = performance.now();
-        currentAudioTime = audio.currentTime;
         gameLoop();
-    }).catch((err) => { 
-        console.warn(err); 
-        lastAudioTime = 0;
-        lastTimeSync = performance.now();
-        currentAudioTime = 0;
-        gameLoop();
-    });
+    }
 }
 
 function exitGameMidway() {
@@ -654,21 +736,22 @@ function exitGameMidway() {
 
 function gameLoop() {
     if (!gameActive && !isPaused) return;
+    if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     const audio = document.getElementById("game-audio");
     
-    if (audio.currentTime !== lastAudioTime) {
+    if (audio && audio.currentTime !== lastAudioTime) {
         lastAudioTime = audio.currentTime;
         lastTimeSync = performance.now();
         currentAudioTime = lastAudioTime;
     } else {
-        if (!audio.paused && gameActive && !isPaused) {
+        if (audio && !audio.paused && gameActive && !isPaused) {
             let elapsed = (performance.now() - lastTimeSync) / 1000;
             if (elapsed > 0.15) elapsed = 0.15; 
             currentAudioTime = lastAudioTime + elapsed;
-        } else {
-            currentAudioTime = audio.currentTime;
+        } else if (!audio) {
+            currentAudioTime = (performance.now() - lastTimeSync) / 1000;
         }
     }
 
@@ -739,7 +822,7 @@ function gameLoop() {
         ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
     }
 
-    if (audio.ended) {
+    if (audio && audio.ended) {
         finishGame();
         return;
     }
@@ -888,17 +971,4 @@ window.addEventListener("keyup", e => {
     if (keyMap[k] !== undefined) {
         lanePressed[keyMap[k]] = false;
     }
-});
-
-document.querySelectorAll(".touch-zone").forEach(z => {
-    const currentLane = keyMap[z.getAttribute("data-key")];
-    z.addEventListener("touchstart", e => {
-        e.preventDefault();
-        lanePressed[currentLane] = true;
-        verifyHit(currentLane);
-    });
-    z.addEventListener("touchend", e => {
-        e.preventDefault();
-        lanePressed[currentLane] = false;
-    });
 });
