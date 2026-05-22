@@ -55,8 +55,10 @@ let rankingUnsubscribe = null;
 let adminRankUnsubscribe = null;
 let adminUserUnsubscribe = null;
 
-// 음악 동기화 타이머 변수
-let audioStartTime = 0; 
+// [안티 스터터 타임라인 용 변수 선언]
+let currentAudioTime = 0;
+let lastAudioTime = 0;
+let lastTimeSync = 0;
 let cachedNoteGradients = []; 
 
 const canvas = document.getElementById("gameCanvas");
@@ -145,14 +147,12 @@ const charts = {
     master: []
 };
 
-// [오류 전면 수정] 소수점 오차 없는 정밀 타임스탬프 섹션별 고밀도 채보 생성기
+// 정밀 타임스탬프 기반 맞춤형 하이엔드 채보 생성 엔진
 (function generatePerfectCharts() {
     // --- 1. HARD 난이도 제작 (약 320노트) ---
-    // Intro 구간 (1초 ~ 16초) - 0.8초 간격 싱글노트
     for (let t = 1.0; t < 16.0; t += 0.8) {
         charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 3) % 4 });
     }
-    // Verse 구간 (16초 ~ 40초) - 0.4초 간격 정박 스크롤 + 1.6초마다 복합 동시타
     for (let t = 16.0; t < 40.0; t += 0.4) {
         let lane = Math.floor(t * 7) % 4;
         charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
@@ -160,11 +160,9 @@ const charts = {
             charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 });
         }
     }
-    // Build-up 구간 (40초 ~ 52초) - 비트 가속 계단형 배치 (0.2초 간격)
     for (let t = 40.0; t < 52.0; t += 0.2) {
         charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 11) % 4 });
     }
-    // Main Drop 클라이맥스 (52초 ~ 84초) - 난타 폭타 스트림 (0.2초 간격) + 0.8초마다 쌍노트
     for (let t = 52.0; t < 84.0; t += 0.2) {
         let lane = Math.floor(t * 13) % 4;
         charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
@@ -172,17 +170,14 @@ const charts = {
             charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 });
         }
     }
-    // Outro 구간 (84초 ~ 100초) - 여운을 주는 싱글 배치 (0.6초 간격)
     for (let t = 84.0; t < 100.0; t += 0.6) {
         charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 5) % 4 });
     }
 
     // --- 2. MASTER 난이도 제작 (약 540노트 밀도) ---
-    // Intro 구간 (1초 ~ 16초) - 정밀 0.4초 간격 연타 배치
     for (let t = 1.0; t < 16.0; t += 0.4) {
         charts.master.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 5) % 4 });
     }
-    // Verse 구간 (16초 ~ 40초) - 0.2초 촘촘한 비트 + 0.8초마다 양손 타격
     for (let t = 16.0; t < 40.0; t += 0.2) {
         let lane = Math.floor(t * 13) % 4;
         charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
@@ -190,11 +185,9 @@ const charts = {
             charts.master.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 });
         }
     }
-    // Build-up 구간 (40초 ~ 52초) - 초고속 16비트 양손 트릴 연타 (0.1초 간격)
     for (let t = 40.0; t < 52.0; t += 0.1) {
         charts.master.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 23) % 4 });
     }
-    // Main Drop 최상위 드롭 구간 (52초 ~ 84초) - 0.1초 미친 폭타 + 0.4초 간격 3라인 초정밀 동시타 융단폭격
     for (let t = 52.0; t < 84.0; t += 0.1) {
         let lane = Math.floor(t * 29) % 4;
         charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
@@ -203,12 +196,10 @@ const charts = {
             charts.master.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 });
         }
     }
-    // Outro 구간 (84초 ~ 100초) - 마무리 변속 연주 (0.3초 간격)
     for (let t = 84.0; t < 100.0; t += 0.3) {
         charts.master.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 7) % 4 });
     }
 
-    // 전 채보 데이터 정렬 매칭 안전선 확보
     charts.hard.sort((a, b) => a.time - b.time);
     charts.master.sort((a, b) => a.time - b.time);
 })();
@@ -571,11 +562,16 @@ function triggerAudioAndLoop() {
     audio.currentTime = 0;
     
     audio.play().then(() => {
-        audioStartTime = performance.now(); 
+        // 동기화 기준 타임라인 리셋
+        lastAudioTime = audio.currentTime;
+        lastTimeSync = performance.now();
+        currentAudioTime = audio.currentTime;
         gameLoop();
     }).catch((err) => { 
         console.warn(err); 
-        audioStartTime = performance.now();
+        lastAudioTime = 0;
+        lastTimeSync = performance.now();
+        currentAudioTime = 0;
         gameLoop();
     });
 }
@@ -602,11 +598,21 @@ function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     const audio = document.getElementById("game-audio");
-    let currentAudioTime = (performance.now() - audioStartTime) / 1000;
     
-    if (Math.abs(currentAudioTime - audio.currentTime) > 0.15) {
-        audioStartTime = performance.now() - (audio.currentTime * 1000);
-        currentAudioTime = audio.currentTime;
+    // [초정밀 안티 스터터 동기화 인터폴레이션]
+    // 오디오 장치의 갱신 프레임 주기가 밀려도 러버밴딩 트랩에 갇히지 않고 부드럽게 시간축 전진 제어
+    if (audio.currentTime !== lastAudioTime) {
+        lastAudioTime = audio.currentTime;
+        lastTimeSync = performance.now();
+        currentAudioTime = lastAudioTime;
+    } else {
+        if (!audio.paused && gameActive) {
+            let elapsed = (performance.now() - lastTimeSync) / 1000;
+            if (elapsed > 0.15) elapsed = 0.15; // 시스템 프레임 드롭 과부하 시 상한선 방어
+            currentAudioTime = lastAudioTime + elapsed;
+        } else {
+            currentAudioTime = audio.currentTime;
+        }
     }
 
     const currentSpeedFactor = noteSpeedMultiplier * 110; 
@@ -679,7 +685,6 @@ function createSparks(startX, startY) {
 // 라인별 최하단 단일 노트 단독 타겟 판정 엔진
 function verifyHit(lane) {
     if(!gameActive) return;
-    const currentAudioTime = (performance.now() - audioStartTime) / 1000;
     
     for(let i=0; i<activeNotes.length; i++) {
         let n = activeNotes[i];
@@ -755,7 +760,6 @@ async function finishGame() {
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
     
-    // [단축키 시스템] 대기실 및 플레이 도중 키보드로 배속을 바꿀 수 있는 핫키 대입
     if (e.key === "[") { adjustNoteSpeed(-0.5); return; }
     if (e.key === "]") { adjustNoteSpeed(0.5); return; }
     
