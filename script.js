@@ -1,4 +1,4 @@
-// Firebase 구성 정보 설정
+// 1. Firebase 초기화 및 개인정보 해싱 적용 문구
 const firebaseConfig = {
     apiKey: "AIzaSyDonJWUh-yF-IeQuhvIvdUJPZN_4nyJccw",
     authDomain: "regame0416.firebaseapp.com",
@@ -13,86 +13,108 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 개발자 도구 및 무단 불펌 기능 전면 잠금 (F12, 단축키, 우클릭 차단)
+// 브라우저 기본 보안 및 조작 불허 장치 잠금
+window.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('selectstart', e => e.preventDefault());
+window.addEventListener('dragstart', e => e.preventDefault());
 window.addEventListener('keydown', function (e) {
     if (e.keyCode === 123) { e.preventDefault(); return false; }
     if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) { e.preventDefault(); return false; }
     if (e.ctrlKey && e.keyCode === 85) { e.preventDefault(); return false; }
 });
 
-// 전역 관리 변수
+// 시스템 변수 및 기기 판정
 let isSignUpMode = false;
 let currentUser = null;
 let isAdmin = false;
 let currentPlatform = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? "Mobile" : "Desktop";
 
-// 리듬 게임 핵심 내부 데이터
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 let animationId;
 let gameActive = false;
-let score = 0;
-let combo = 0;
-let maxCombo = 0;
-let perfectCount = 0;
+let score = 0, combo = 0, maxCombo = 0, perfectCount = 0;
 let selectedDifficulty = 'easy';
-let notes = [];
-let lastNoteTime = 0;
+let activeNotes = [];
+let chartData = [];
 
-// 우주 수평선 너머 공간 난이도 설정 메트릭스
-const difficultySettings = {
-    easy: { speed: 4, interval: 1000 },
-    normal: { speed: 6, interval: 750 },
-    hard: { speed: 9, interval: 480 },
-    master: { speed: 12, interval: 320 }
+// [보완] 고유 정밀 채보 데이터베이스 (곡 타임스탬프 기준 매핑)
+const charts = {
+    easy: [ {time: 1.2, lane: 0}, {time: 2.4, lane: 1}, {time: 3.6, lane: 2}, {time: 4.8, lane: 3}, {time: 6.0, lane: 1} ],
+    normal: [ {time: 1.0, lane: 0}, {time: 1.8, lane: 2}, {time: 2.5, lane: 1}, {time: 3.2, lane: 3}, {time: 4.0, lane: 0} ],
+    hard: [ {time: 0.5, lane: 0}, {time: 0.9, lane: 3}, {time: 1.3, lane: 1}, {time: 1.7, lane: 2}, {time: 2.1, lane: 0} ],
+    master: [ {time: 0.3, lane: 1}, {time: 0.6, lane: 2}, {time: 0.9, lane: 0}, {time: 1.2, lane: 3}, {time: 1.5, lane: 1} ]
 };
+const speedSettings = { easy: 5, normal: 7, hard: 10, master: 14 };
 
-// 화면 토글링 시스템
-function toggleAuthMode() {
-    isSignUpMode = !isSignUpMode;
-    document.getElementById("auth-title").innerText = isSignUpMode ? "새로운 은하 생성 (회원가입)" : "우주 진입 (로그인)";
-    document.getElementById("auth-toggle").innerText = isSignUpMode ? "이미 계정이 있으신가요? 로그인하기" : "새로운 여행자이신가요? 회원가입하기";
+// 2. 자체 커스텀 알림 시스템 기능 구현
+function showCustomAlert(title, message) {
+    document.getElementById("popup-title").innerText = title;
+    document.getElementById("popup-message").innerText = message;
+    document.getElementById("custom-popup").style.display = "flex";
+}
+function closeCustomPopup() {
+    document.getElementById("custom-popup").style.display = "none";
 }
 
-// 비밀번호 및 아이디 핸들러 로직
+// 3. 약관 창 제어
+function openTosModal() { document.getElementById("tos-modal").style.display = "flex"; }
+function closeTosModal() { document.getElementById("tos-modal").style.display = "none"; }
+
+// 4. 단방향 문자열 암호화 처리용 헬퍼함수 (Web Crypto API 적용)
+async function secureHash(string) {
+    const utf8 = new TextEncoder().encode(string);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function toggleAuthMode() {
+    isSignUpMode = !isSignUpMode;
+    document.getElementById("auth-title").innerText = isSignUpMode ? "새 은하 가입 (회원가입)" : "우주 진입 (로그인)";
+    document.getElementById("auth-toggle").innerText = isSignUpMode ? "이미 계정이 있으신가요? 로그인하기" : "회원가입하기";
+}
+
+// 회원가입 및 로그인 절차 
 async function handleAuth() {
     const rawId = document.getElementById("auth-id").value.trim();
     const rawPw = document.getElementById("auth-pw").value.trim();
 
-    if(!rawId || !rawPw) return alert("아이디와 비밀번호를 빠짐없이 입력해주세요.");
+    if(!rawId || !rawPw) return showCustomAlert("경고", "아이디와 비밀번호를 모두 기재해 주세요.");
 
-    // 지정 관리자 계정 하드코딩 검증 규칙
+    // 어드민 전용 지정 계정 매칭 규칙
     if (rawId === "아시" && rawPw === "260416") {
         isAdmin = true;
-        currentUser = { uid: "admin_asi", displayName: "아시(관리자)", email: "asi@horizon.com" };
+        currentUser = { uid: "admin_asi", displayName: "아시" };
         document.getElementById("btn-admin").classList.remove("hidden");
         showLobby();
         return;
     }
 
-    // 일반 유저는 Firebase 인증 체계 호환을 위해 가상 이메일 마스킹 처리
-    const emailFormat = rawId.includes("@") ? rawId : `${rawId}@horizon.com`;
-
+    const secureEmail = `${await secureHash(rawId.toLowerCase())}@horizon.com`;
+    
     try {
         if (isSignUpMode) {
-            const userCredential = await auth.createUserWithEmailAndPassword(emailFormat, rawPw);
+            const userCredential = await auth.createUserWithEmailAndPassword(secureEmail, rawPw);
             await userCredential.user.updateProfile({ displayName: rawId });
-            alert("우주선 승선이 완료되었습니다. (회원가입 성공)");
+            // 유저 관리를 위한 별도 컬렉션 생성 기록 저장
+            await db.collection("horizon_users").doc(userCredential.user.uid).set({
+                username: rawId,
+                joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            showCustomAlert("성공", "우주선 승선 등록이 수락되었습니다.");
         } else {
-            await auth.signInWithEmailAndPassword(emailFormat, rawPw);
+            await auth.signInWithEmailAndPassword(secureEmail, rawPw);
         }
     } catch (error) {
-        alert("인증에 실패하였습니다: " + error.message);
+        showCustomAlert("오류", "계정 인증 도중 거부되었습니다: " + error.message);
     }
 }
 
-// 실시간 인증 상태 리스너
 auth.onAuthStateChanged((user) => {
     if (user && !isAdmin) {
         currentUser = user;
         showLobby();
-    } else if (!isAdmin) {
-        showScreen("auth-screen");
     }
 });
 
@@ -101,128 +123,109 @@ function handleLogout() {
     isAdmin = false;
     currentUser = null;
     document.getElementById("btn-admin").classList.add("hidden");
-    showScreen("auth-screen");
-}
-
-function showScreen(screenId) {
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-    document.getElementById(screenId).classList.add("active");
+    document.getElementById("auth-screen").classList.add("active");
 }
 
 function showLobby() {
-    showScreen("lobby-screen");
-    document.getElementById("user-welcome").innerText = `반갑습니다, ${currentUser.displayName || currentUser.email.split('@')[0]} 여행자님!`;
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    document.getElementById("lobby-screen").classList.add("active");
+    document.getElementById("user-welcome").innerText = `반갑습니다, ${currentUser.displayName} 여행자님!`;
     loadRankings();
 }
 
-// 글로벌 리더보드 데이터 파싱
 async function loadRankings() {
     const tbody = document.getElementById("ranking-tbody");
     tbody.innerHTML = "";
-    
     try {
-        const snapshot = await db.collection("horizon_rankings").orderBy("score", "desc").limit(25).get();
+        const snapshot = await db.collection("horizon_rankings").orderBy("score", "desc").limit(20).get();
         let rank = 1;
         snapshot.forEach(doc => {
             const data = doc.data();
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
+            tbody.innerHTML += `<tr>
                 <td>${rank++}</td>
                 <td>${data.username}</td>
-                <td class="${data.difficulty}">${data.difficulty.toUpperCase()}</td>
+                <td>${data.difficulty.toUpperCase()}</td>
                 <td>${data.score}</td>
                 <td>${data.maxCombo}</td>
                 <td>${data.perfectCount}</td>
-                <td><span class="platform-badge">${data.platform || 'Desktop'}</span></td>
-            `;
-            tbody.appendChild(tr);
+                <td><span class="platform-badge">${data.platform}</span></td>
+            </tr>`;
         });
-    } catch (err) {
-        console.error("랭킹 테이블 로드 실패:", err);
-    }
+    } catch (e) { console.log(e); }
 }
 
-// 최종 결과 수평선 저장 인젝터
-async function saveScore() {
-    if(!currentUser) return;
-    try {
-        await db.collection("horizon_rankings").add({
-            uid: currentUser.uid,
-            username: currentUser.displayName || currentUser.email.split('@')[0],
-            score: score,
-            maxCombo: maxCombo,
-            perfectCount: perfectCount,
-            difficulty: selectedDifficulty,
-            platform: currentPlatform,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-    } catch (err) {
-        console.error("클라우드 기록 실패:", err);
-    }
+// 5. [보완] 어드민 탭 전환 및 유저 관리 기능 구현
+function switchAdminTab(type) {
+    document.querySelectorAll(".admin-tab-content").forEach(c => c.classList.remove("active"));
+    if(type === 'rank') document.getElementById("admin-rank-section").classList.add("active");
+    if(type === 'user') document.getElementById("admin-user-section").classList.add("active");
 }
 
-// 어드민 전용 컨트롤 패널 로직
 async function openAdminPanel() {
     if(!isAdmin) return;
     document.getElementById("admin-modal").style.display = "flex";
-    const tbody = document.getElementById("admin-tbody");
-    tbody.innerHTML = "";
+    
+    // 랭킹 목록 갱신
+    const rankTbody = document.getElementById("admin-ranking-tbody");
+    rankTbody.innerHTML = "";
+    const rankSnap = await db.collection("horizon_rankings").limit(30).get();
+    rankSnap.forEach(doc => {
+        const d = doc.data();
+        rankTbody.innerHTML += `<tr><td>${d.username}</td><td>${d.score}</td><td>${d.difficulty}</td>
+        <td><button onclick="deleteRank('${doc.id}')" style="background:#cc0000; padding:4px;">삭제</button></td></tr>`;
+    });
 
-    const snapshot = await db.collection("horizon_rankings").orderBy("timestamp", "desc").limit(50).get();
-    snapshot.forEach(doc => {
-        const data = doc.data();
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${data.username}</td>
-            <td>${data.score}</td>
-            <td>${data.difficulty}</td>
-            <td><button onclick="deleteData('${doc.id}')" style="background:#cc0000; padding:4px 8px; font-size:0.8rem;">삭제</button></td>
-        `;
-        tbody.appendChild(tr);
+    // 유저 목록 명단 로드
+    const userTbody = document.getElementById("admin-user-tbody");
+    userTbody.innerHTML = "";
+    const userSnap = await db.collection("horizon_users").limit(30).get();
+    userSnap.forEach(doc => {
+        const u = doc.data();
+        userTbody.innerHTML += `<tr><td>${u.username}</td><td>정상 작동 중</td>
+        <td><button onclick="banUser('${doc.id}')" style="background:#cc0000; padding:4px;">추방</button></td></tr>`;
     });
 }
 
-function closeAdminPanel() {
-    document.getElementById("admin-modal").style.display = "none";
+function closeAdminPanel() { document.getElementById("admin-modal").style.display = "none"; }
+
+async function deleteRank(id) {
+    if(confirm("기록을 파기합니까?")) { await db.collection("horizon_rankings").doc(id).delete(); openAdminPanel(); loadRankings(); }
+}
+async function banUser(id) {
+    if(confirm("해당 유저를 추방 처리하시겠습니까?")) { await db.collection("horizon_users").doc(id).delete(); openAdminPanel(); }
 }
 
-async function deleteData(docId) {
-    if(confirm("수평선 너머 기록실에서 이 데이터를 영구 파기하시겠습니까?")) {
-        await db.collection("horizon_rankings").doc(docId).delete();
-        openAdminPanel();
-        loadRankings();
-    }
-}
-
-// 리듬게임 연산 엔진 구역
-const lanes = [100, 200, 300, 400];
+// 6. 리듬게임 가변 연산 메인 엔진
+const lanes = [60, 160, 260, 360];
 const keyMap = { 'd': 0, 'f': 1, 'j': 2, 'k': 3 };
-const targetY = 500;
+let targetY = 480;
 
-function resizeCanvas() {
-    canvas.width = 500;
-    canvas.height = 600;
+function fitCanvasSize() {
+    canvas.width = 420;
+    canvas.height = 560;
+    targetY = canvas.height * 0.85;
 }
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+window.addEventListener('resize', fitCanvasSize);
 
 function startGame(diff) {
     selectedDifficulty = diff;
-    showScreen("game-screen");
+    fitCanvasSize();
+    
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    document.getElementById("game-screen").classList.add("active");
     
     score = 0; combo = 0; maxCombo = 0; perfectCount = 0;
-    notes = [];
-    gameActive = true;
+    activeNotes = [];
     
-    document.getElementById("game-score").innerText = "SCORE: 0";
-    document.getElementById("game-combo").innerText = "0 COMBO";
-    document.getElementById("game-judge").innerText = "START";
+    // 깊은 복사로 채보 복제 생성
+    chartData = JSON.parse(JSON.stringify(charts[selectedDifficulty]));
+    gameActive = true;
 
     const audio = document.getElementById("game-audio");
     audio.currentTime = 0;
-    audio.play().catch(e => console.log("음악 리소스를 확인해주세요."));
+    audio.play().catch(() => {});
 
-    lastNoteTime = Date.now();
     gameLoop();
 }
 
@@ -230,131 +233,95 @@ function gameLoop() {
     if (!gameActive) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    drawTrack();
+    // 레인 가이드 도식화
+    ctx.strokeStyle = "rgba(138, 43, 226, 0.3)";
+    lanes.forEach(x => {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    });
 
-    const now = Date.now();
-    const config = difficultySettings[selectedDifficulty];
-    if (now - lastNoteTime > config.interval) {
-        const randomLane = Math.floor(Math.random() * 4);
-        notes.push({ x: lanes[randomLane], y: 0, lane: randomLane });
-        lastNoteTime = now;
+    // 판정선 (수평선 일루전)
+    ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(0, targetY); ctx.lineTo(canvas.width, targetY); ctx.stroke();
+
+    const audio = document.getElementById("game-audio");
+    const currentAudioTime = audio.currentTime;
+
+    // 실시간 비트맵 타임 노출 연산
+    if (chartData.length > 0 && chartData[0].time <= currentAudioTime + 1.5) {
+        const next = chartData.shift();
+        activeNotes.push({ x: lanes[next.lane], y: 0, lane: next.lane });
     }
 
-    for (let i = notes.length - 1; i >= 0; i--) {
-        let n = notes[i];
-        n.y += config.speed;
-        
-        // 우주의 수평선 네온 이펙트 노트 디자인
+    const currentSpeed = speedSettings[selectedDifficulty];
+    for (let i = activeNotes.length - 1; i >= 0; i--) {
+        let n = activeNotes[i];
+        n.y += currentSpeed;
+
+        // 몽환적 노트 그래픽 연산
         ctx.fillStyle = "#e0b0ff";
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = "#ff00ff";
-        ctx.fillRect(n.x - 40, n.y - 10, 80, 20);
-        ctx.shadowBlur = 0;
+        ctx.fillRect(n.x - 40, n.y - 10, 80, 16);
 
         if (n.y > canvas.height) {
-            notes.splice(i, 1);
-            triggerJudgement("MISS");
+            activeNotes.splice(i, 1);
+            updateJudgement("MISS");
         }
     }
 
-    const audio = document.getElementById("game-audio");
-    if(audio.ended) {
-        endGame();
+    if (audio.ended || (chartData.length === 0 && activeNotes.length === 0)) {
+        finishGame();
         return;
     }
-
     animationId = requestAnimationFrame(gameLoop);
 }
 
-function drawTrack() {
-    // 트랙 라인
-    ctx.strokeStyle = "rgba(138, 43, 226, 0.25)";
-    ctx.lineWidth = 2;
-    for(let i=0; i<lanes.length; i++) {
-        ctx.beginPath();
-        ctx.moveTo(lanes[i], 0);
-        ctx.lineTo(lanes[i], canvas.height);
-        ctx.stroke();
-    }
-    
-    // 판정선 (수평선 효과)
-    ctx.strokeStyle = "#00ffff";
-    ctx.lineWidth = 4;
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = "#00ffff";
-    ctx.beginPath();
-    ctx.moveTo(0, targetY);
-    ctx.lineTo(canvas.width, targetY);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-}
-
-function pressKey(laneIndex) {
-    if (!gameActive) return;
-    
-    let hit = false;
-    for (let i = 0; i < notes.length; i++) {
-        let n = notes[i];
-        if (n.lane === laneIndex) {
-            let distance = Math.abs(n.y - targetY);
-            
-            if (distance < 28) {
-                triggerJudgement("PERFECT");
-                score += 1000 + combo * 10;
-                perfectCount++;
-                hit = true;
-            } else if (distance < 55) {
-                triggerJudgement("GREAT");
-                score += 600 + combo * 5;
-                hit = true;
-            } else if (distance < 85) {
-                triggerJudgement("GOOD");
-                score += 300;
-                hit = true;
-            }
-            
-            if (hit) {
-                notes.splice(i, 1);
-                break;
-            }
+function verifyHit(lane) {
+    if(!gameActive) return;
+    for(let i=0; i<activeNotes.length; i++) {
+        let n = activeNotes[i];
+        if(n.lane === lane) {
+            let dist = Math.abs(n.y - targetY);
+            if(dist < 25) { updateJudgement("PERFECT"); score += 1000; perfectCount++; activeNotes.splice(i,1); break; }
+            else if(dist < 50) { updateJudgement("GREAT"); score += 500; activeNotes.splice(i,1); break; }
+            else if(dist < 80) { updateJudgement("GOOD"); score += 200; activeNotes.splice(i,1); break; }
         }
     }
 }
 
-function triggerJudgement(type) {
-    const judgeDiv = document.getElementById("game-judge");
-    judgeDiv.innerText = type;
-    
-    if (type === "MISS") {
-        combo = 0;
-        judgeDiv.style.color = "#ff3333";
-    } else {
-        combo++;
-        if(combo > maxCombo) maxCombo = combo;
-        judgeDiv.style.color = type === "PERFECT" ? "#00ffff" : "#ff00ff";
-    }
+function updateJudgement(res) {
+    document.getElementById("game-judge").innerText = res;
+    if(res === "MISS") combo = 0; 
+    else { combo++; if(combo > maxCombo) maxCombo = combo; }
     document.getElementById("game-combo").innerText = `${combo} COMBO`;
     document.getElementById("game-score").innerText = `SCORE: ${score}`;
 }
 
-async function endGame() {
+async function finishGame() {
     gameActive = false;
     cancelAnimationFrame(animationId);
-    alert(`수평선 끝에 도달했습니다!\n최종 스코어: ${score}점`);
-    await saveScore();
+    showCustomAlert("완료", `최종 스코어 ${score}점을 획득했습니다.`);
+    
+    if (currentUser) {
+        await db.collection("horizon_rankings").add({
+            username: currentUser.displayName,
+            score: score,
+            maxCombo: maxCombo,
+            perfectCount: perfectCount,
+            difficulty: selectedDifficulty,
+            platform: currentPlatform,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    }
     showLobby();
 }
 
-// 하드웨어 입력 바인딩 제어 (크로스플랫폼 완전 분리)
-window.addEventListener("keydown", (e) => {
-    const key = e.key.toLowerCase();
-    if (keyMap[key] !== undefined) pressKey(keyMap[key]);
+// 크로스플랫폼 통합 바인딩 제어
+window.addEventListener("keydown", e => {
+    const k = e.key.toLowerCase();
+    if (keyMap[k] !== undefined) verifyHit(keyMap[k]);
 });
-
-document.querySelectorAll(".touch-zone").forEach(zone => {
-    zone.addEventListener("touchstart", (e) => {
+document.querySelectorAll(".touch-zone").forEach(z => {
+    z.addEventListener("touchstart", e => {
         e.preventDefault();
-        const key = zone.getAttribute("data-key");
-        if (keyMap[key] !== undefined) pressKey(keyMap[key]);
+        verifyHit(keyMap[z.getAttribute("data-key")]);
     });
 });
