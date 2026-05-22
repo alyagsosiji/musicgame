@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2=family=Orbitron:wght@400;700&family=Noto+Sans+KR:wght@300;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+KR:wght@300;500;700&display=swap');
 
 * {
     box-sizing: border-box;
@@ -17,7 +17,6 @@ body, html {
     color: #fff;
 }
 
-/* 배경 터치 간섭 현상 완전 차단 */
 .stars, .twinkling {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -63,6 +62,7 @@ body, html {
 }
 .glow-text.small { font-size: 1.6rem; margin-bottom: 12px; }
 
+/* 정렬 구조 보강 */
 .auth-box, .ranking-container, .modal-content, .popup-content {
     background: rgba(10, 6, 24, 0.9);
     border: 1px solid rgba(138, 43, 226, 0.6);
@@ -73,9 +73,15 @@ body, html {
     max-width: 460px;
     text-align: center;
     backdrop-filter: blur(15px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
+.input-group { width: 100%; margin-bottom: 15px; }
+.auth-footer { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; }
+
 .ranking-container { max-width: 850px; height: 320px; }
-.admin-box { max-width: 750px; }
+.admin-box { max-width: 750px; align-items: stretch; }
 
 .song-card {
     display: flex;
@@ -100,11 +106,10 @@ body, html {
     100% { transform: scale(1); opacity: 0.8; }
 }
 
-/* 호스팅 서버 타이핑 및 복사 입력 보장 */
 input {
     width: 100%;
     padding: 12px 18px;
-    margin: 8px 0;
+    margin: 6px 0;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 8px;
@@ -133,14 +138,31 @@ button:hover {
     transform: translateY(-1px);
     box-shadow: 0 0 15px #ff00ff;
 }
+.main-action { width: 100%; padding: 14px; font-size: 1.05rem; }
 
 #auth-toggle, #tos-view-btn {
-    margin-top: 12px;
     font-size: 0.85rem;
     color: #b0c4de;
     cursor: pointer;
     text-decoration: underline;
 }
+
+/* 로비 상단 바 레이아웃 정렬 최적화 */
+.lobby-header {
+    width: 100%;
+    max-width: 850px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+.header-buttons { display: flex; gap: 10px; }
+.logout-btn { background: #331122; border: 1px solid #ff0055; color: #ff3377; }
+.logout-btn:hover { box-shadow: 0 0 10px #ff0055; }
 
 .difficulty-container {
     display: grid;
@@ -150,16 +172,32 @@ button:hover {
     max-width: 800px;
     margin-bottom: 25px;
 }
-.diff-btn { padding: 15px; font-size: 1rem; color: #000; font-weight: 700; }
+.diff-btn { padding: 15px; font-size: 1rem; color: #000; font-weight: 700; border-radius: 8px; }
 .diff-btn.easy { background: #00ffcc; }
 .diff-btn.normal { background: #00ccff; }
 .diff-btn.hard { background: #ff007f; color: #fff; }
 .diff-btn.master { background: #7f00ff; color: #fff; }
 
-.table-wrapper { overflow-y: auto; height: 220px; margin-top: 10px; }
+.table-wrapper { overflow-y: auto; height: 220px; margin-top: 10px; width: 100%; }
 table { width: 100%; border-collapse: collapse; text-align: left; }
 th, td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; }
 th { color: #ff00ff; }
+
+/* 인게임 상단 제어 바 스타일 */
+.game-header-bar {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    z-index: 20;
+}
+.exit-btn {
+    background: rgba(255, 51, 119, 0.2);
+    border: 1px solid #ff3377;
+    color: #ff3377;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+}
+.exit-btn:hover { background: #ff3377; color: #fff; }
 
 .canvas-container {
     display: flex;
@@ -193,7 +231,8 @@ th { color: #ff00ff; }
     font-size: 1.5rem; font-weight: bold;
 }
 
-.popup-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
+.popup-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 15px; width: 100%; }
+.popup-buttons button { flex: 1; max-width: 120px; }
 #popup-cancel-btn { background: #444; }
 
 .modal, .popup-modal {
