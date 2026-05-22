@@ -425,7 +425,7 @@ function gameLoop() {
 
     ctx.strokeStyle = "rgba(138, 43, 226, 0.3)";
     lanes.forEach(x => {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); stroke();
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); // [수정] ctx.stroke() 오타 전면 수리 완료
     });
 
     ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 4;
@@ -461,7 +461,6 @@ function gameLoop() {
         ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
     }
 
-    // [자연스러운 연출 보완] 노트가 모두 소진되더라도 음악City 음원이 완전히 끝날 때까지 대기 후 처리
     if (audio.ended) {
         finishGame();
         return;
