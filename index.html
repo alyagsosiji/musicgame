@@ -47,6 +47,15 @@
             </div>
         </div>
 
+        <div class="speed-controller-wrapper">
+            <span class="speed-label">노트 속도 (SPEED)</span>
+            <div class="speed-gear">
+                <button class="speed-btn-adjust" onclick="adjustNoteSpeed(-0.5)">-</button>
+                <span id="speed-display-value">4.0</span>
+                <button class="speed-btn-adjust" onclick="adjustNoteSpeed(0.5)">+</button>
+            </div>
+        </div>
+
         <h1 class="glow-text small">공간 선택 (DIFFICULTY)</h1>
         <div class="difficulty-container">
             <button class="diff-btn easy" onclick="startGame('easy')">EASY</button>
