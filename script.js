@@ -50,7 +50,10 @@ let chartData = [];
 let selectedDifficulty = "easy";
 let popupCallback = null;
 
-// [초정밀 보간용] 음악 동기화 타이머 변수
+// 실시간 리스너 바인딩 해제용 변수
+let rankingUnsubscribe = null; 
+
+// 음악 동기화 타이머 변수
 let audioStartTime = 0; 
 let cachedNoteGradients = []; 
 
@@ -140,7 +143,7 @@ const charts = {
     master: []
 };
 
-// 채보 고밀도 절약 연산 루프
+// 채보 데이터 고밀도 생성 자동화 연산 루프
 (function generateDenseCharts() {
     for (let t = 1.0; t < 100.0; t += 0.45) {
         let l = Math.floor((t * 7) % 4);
@@ -164,7 +167,7 @@ const charts = {
     charts.master.sort((a, b) => a.time - b.time);
 })();
 
-// [최적화] 노구용 그라데이션 사전 제작 (가비지 컬렉션 부하 원천 차단)
+// 노구용 그라데이션 사전 제작 (렉 방지)
 function preCacheGradients() {
     cachedNoteGradients = lanes.map(x => {
         let g = ctx.createLinearGradient(x - 40, 0, x + 40, 0);
@@ -196,9 +199,9 @@ document.getElementById("popup-confirm-btn").onclick = () => closeCustomPopup(tr
 document.getElementById("popup-cancel-btn").onclick = () => closeCustomPopup(false);
 
 function openTosModal() { document.getElementById("tos-modal").style.display = "flex"; }
-function closeTosModal() { document.getElementById("tos-modal").style.display = "none"; }
+function closeTosModal() { document.getElementById("tos-modal").style.none; }
 
-// 암호화 인코더
+// SHA-256 암호화 인코더
 async function secureHash(string) {
     if (window.crypto && crypto.subtle && crypto.subtle.digest) {
         try {
@@ -322,6 +325,10 @@ auth.onAuthStateChanged((user) => {
 });
 
 function handleLogout() {
+    if (rankingUnsubscribe) {
+        rankingUnsubscribe();
+        rankingUnsubscribe = null;
+    }
     auth.signOut();
     isAdmin = false;
     currentUser = null;
@@ -336,31 +343,38 @@ function showLobby(fallbackName = "") {
     
     const finalRenderName = currentUser ? (currentUser.displayName || fallbackName || "여행자") : (fallbackName || "여행자");
     document.getElementById("user-welcome").innerText = `반갑습니다, ${finalRenderName} 여행자님!`;
-    loadRankings();
+    
+    // 로비 진입 시 실시간 랭킹 시스템 가동
+    startRealtimeRankings();
 }
 
-async function loadRankings() {
+// [리팩토링] 다른 유저들의 클리어 점수가 새로고침 없이 즉각 동기화되는 실시간 리스너 함수
+function startRealtimeRankings() {
+    if (rankingUnsubscribe) rankingUnsubscribe(); // 중복 리스너 방지 방어선
+
     const tbody = document.getElementById("ranking-tbody");
-    tbody.innerHTML = "";
-    try {
-        const snapshot = await db.collection("horizon_rankings").orderBy("score", "desc").limit(20).get();
-        let rank = 1;
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            tbody.innerHTML += `<tr>
-                <td>${rank++}</td>
-                <td>${data.username}</td>
-                <td>${data.difficulty.toUpperCase()}</td>
-                <td>${data.score}</td>
-                <td>${data.maxCombo}</td>
-                <td>${data.perfectCount}</td>
-                <td><span class="platform-badge">${data.platform}</span></td>
-            </tr>`;
+    
+    rankingUnsubscribe = db.collection("horizon_rankings")
+        .orderBy("score", "desc")
+        .limit(20)
+        .onSnapshot((snapshot) => {
+            tbody.innerHTML = "";
+            let rank = 1;
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                tbody.innerHTML += `<tr>
+                    <td>${rank++}</td>
+                    <td>${data.username}</td>
+                    <td>${data.difficulty.toUpperCase()}</td>
+                    <td>${data.score}</td>
+                    <td>${data.maxCombo}</td>
+                    <td>${data.perfectCount}</td>
+                    <td><span class="platform-badge">${data.platform}</span></td>
+                </tr>`;
+            });
+        }, (error) => {
+            console.error("실시간 랭킹 로드 실패: ", error);
         });
-    } catch (e) { 
-        console.error(e);
-        showCustomAlert("통신 장애", "기록실 허가를 받지 못했습니다. Firestore Database를 개설했는지 콘솔창을 확인하세요.");
-    }
 }
 
 function switchAdminTab(type) {
@@ -393,7 +407,7 @@ async function openAdminPanel() {
             <td><button onclick="requestBanUser('${doc.id}')" style="background:#cc0000; padding:4px;">추방</button></td></tr>`;
         });
     } catch(e) {
-        showCustomAlert("권한 오류", "데이터베이스 접근 실패. Firestore [Rules] 탭이 개방되어 있는지 확인해 주세요.");
+        showCustomAlert("권한 오류", "데이터베이스 접근 실패. Firestore [Rules] 개방 여부 및 개설 여부를 확인해 주세요.");
     }
 }
 
@@ -403,7 +417,6 @@ function requestDeleteRank(id) {
     showCustomAlert("확인", "해당 기록을 기록실에서 파기하시겠습니까?", true, async () => {
         await db.collection("horizon_rankings").doc(id).delete();
         openAdminPanel();
-        loadRankings();
     });
 }
 
@@ -418,7 +431,7 @@ function fitCanvasSize() {
     canvas.width = 420;
     canvas.height = 560;
     targetY = canvas.height * 0.85;
-    preCacheGradients(); // 사이즈 변화 시 그라데이션 리프레시
+    preCacheGradients(); 
 }
 window.addEventListener('resize', fitCanvasSize);
 
@@ -471,7 +484,7 @@ function triggerAudioAndLoop() {
     audio.currentTime = 0;
     
     audio.play().then(() => {
-        audioStartTime = performance.now(); // 오디오 정밀 시작점 기록
+        audioStartTime = performance.now(); 
         gameLoop();
     }).catch((err) => { 
         console.warn(err); 
@@ -503,10 +516,8 @@ function gameLoop() {
     
     const audio = document.getElementById("game-audio");
     
-    // [최적화 알고리즘] 오디오 객체에 의존하지 않고 고해상도 타이머를 연동하여 렉 원천 제거
     let currentAudioTime = (performance.now() - audioStartTime) / 1000;
     
-    // 타임 슬립 방어선 구축 (싱크 차이가 크게 나면 자동 동기화 보정)
     if (Math.abs(currentAudioTime - audio.currentTime) > 0.15) {
         audioStartTime = performance.now() - (audio.currentTime * 1000);
         currentAudioTime = audio.currentTime;
@@ -543,7 +554,6 @@ function gameLoop() {
         let n = activeNotes[i];
         n.y = targetY - (n.targetTime - currentAudioTime) * currentSpeedFactor;
 
-        // [최적화] 캐싱된 고정 변조 그래픽을 읽어 대입 (프레임 드랍 제거 완료)
         ctx.fillStyle = cachedNoteGradients[n.lane] || "#ff00ff";
         ctx.fillRect(n.x - 44, n.y - 9, 88, 18);
 
@@ -628,25 +638,20 @@ async function finishGame() {
         else englishLiveTitle = "FULL COMBO";
     }
 
-    // 랭킹 등록 식별자 명칭 보정 (관리자/일반인 통합 연동 지원)
-    let finalRegisterName = "여행자";
-    if (isAdmin) {
-        finalRegisterName = "아시(관리자)";
-    } else if (currentUser) {
-        finalRegisterName = currentUser.displayName || "여행자";
+    // [제한 복구 완료] 관리자 계정이 아닐 때에만 글로벌 랭킹 데이터베이스에 기록을 누적합니다.
+    if (currentUser && currentUser.uid !== "admin_asi" && !isAdmin) {
+        try {
+            await db.collection("horizon_rankings").add({
+                username: currentUser.displayName || "여행자",
+                score: score,
+                maxCombo: maxCombo,
+                perfectCount: perfectCount,
+                difficulty: selectedDifficulty,
+                platform: currentPlatform,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } catch(e) { console.error("랭킹 전송 실패: ", e); }
     }
-
-    try {
-        await db.collection("horizon_rankings").add({
-            username: finalRegisterName,
-            score: score,
-            maxCombo: maxCombo,
-            perfectCount: perfectCount,
-            difficulty: selectedDifficulty,
-            platform: currentPlatform,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-    } catch(e) { console.error("랭킹 전송 실패: ", e); }
 
     showCustomAlert(
         englishLiveTitle, 
