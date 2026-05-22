@@ -1,9 +1,9 @@
 // =========================================================================
-// 1. 수평선 은하 시스템 환경 설정 및 파이어베이스 코어 구성 (오타 완벽 박멸)
+// 1. 수평선 은하 시스템 환경 설정 및 파이어베이스 코어 구성 (오타 완벽 해결)
 // =========================================================================
 const _skyHorizonConfig = {
     ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
-    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=", // 마침표 오타 정밀 수정 완료
+    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=", // 마침표(.) 오타 정밀 교정 완료
     pi: "cmVnYW1lMDQxNg==",
     sb: "cmVnYW1lMDQxNi5maXJlYmFzZXN0b3JhZ2UuYXBw",
     mi: "MjE5Mjc1NjM2MjU1",
@@ -165,7 +165,7 @@ const charts = {
     master: []
 };
 
-// 하드/마스터 고밀도 채보 자동 생성기
+// 하드/마스터 고밀도 채보 자동 빌더
 (function generatePerfectCharts() {
     for (let t = 1.0; t < 16.0; t += 0.8) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 3) % 4 });
     for (let t = 16.0; t < 40.0; t += 0.4) {
@@ -208,7 +208,7 @@ function preCacheGradients() {
     });
 }
 
-// 🛠️ [복구 완료] 배속 조절 기능 엔진 함수
+// 🛠️ [누락 해결] 배속 제어 엔진 함수
 function adjustNoteSpeed(amount) {
     let nextSpeed = noteSpeedMultiplier + amount;
     if (nextSpeed >= 1.0 && nextSpeed <= 9.5) {
@@ -218,7 +218,7 @@ function adjustNoteSpeed(amount) {
     }
 }
 
-// 🛠️ [복구 완료] 판정선 오디오 싱크 옵셋 조절 함수
+// 🛠️ [누락 해결] 판정선 오디오 싱크 옵셋 조절 함수
 function adjustAudioOffset(amount) {
     audioOffset = parseFloat((audioOffset + amount).toFixed(3));
     const offsetDisplay = document.getElementById("offset-display-value");
@@ -293,7 +293,7 @@ function toggleAuthMode() {
     }
 }
 
-// 🔒 [요청사항 반영] 체크 해제 후 가입 시 자체 알림팝업 강제 검증 프로토콜
+// 🔒 [요청사항 완벽 반영] 체크 해제 후 가입 시 자체 안내 팝업 및 약관 모달 연동 가드
 async function handleAuth() {
     const rawId = document.getElementById("auth-id").value.trim();
     const rawPw = document.getElementById("auth-pw").value.trim();
@@ -608,14 +608,14 @@ async function secureHash(string) {
 }
 
 // =========================================================================
-// 5. 윈도우 스코프 안전 바인딩 및 초기화 가드 레이어
+// 5. 윈도우 스코프 안전 바인딩 및 라이프사이클 가드 초기화
 // =========================================================================
 document.addEventListener("DOMContentLoaded", () => {
     canvas = document.getElementById("gameCanvas"); 
     if (canvas) ctx = canvas.getContext("2d"); 
     fitCanvasSize();
 
-    // 윈도우 글로벌 명시적 매핑 (인라인 HTML onclick 크래시 철저 방어)
+    // 윈도우 글로벌 명시적 매핑 (인라인 HTML onclick 크래시 완벽 차단)
     window.showCustomAlert = showCustomAlert; 
     window.closeCustomPopup = closeCustomPopup;
     window.openTosModal = openTosModal; 
@@ -648,6 +648,12 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // popup 버튼 이벤트 바인딩
+    const confirmBtn = document.getElementById("popup-confirm-btn");
+    if (confirmBtn) confirmBtn.onclick = () => closeCustomPopup(true);
+    const cancelBtn = document.getElementById("popup-cancel-btn");
+    if (cancelBtn) cancelBtn.onclick = () => closeCustomPopup(false);
+
     // 모바일 터치 패널 이벤트 매핑
     document.querySelectorAll(".touch-zone").forEach(z => {
         const currentLane = keyMap[z.getAttribute("data-key")];
@@ -655,7 +661,7 @@ document.addEventListener("DOMContentLoaded", () => {
         z.addEventListener("touchend", e => { e.preventDefault(); lanePressed[currentLane] = false; });
     });
 
-    // 🔒 DOM 구성 완료 직후 레이스 컨디션 없이 세션 감지기 안전 시동
+    // 🔒 DOM 구성 완료 직후 세션 감지기 시동
     auth.onAuthStateChanged((user) => { 
         if (!isAdmin && !isAuthActionLock) {
             if (user) { currentUser = user; showLobby(); } 
