@@ -12,7 +12,7 @@ const _skyHorizonConfig = {
 const firebaseConfig = {
     apiKey: atob(_skyHorizonConfig.ak),
     authDomain: atob(_skyHorizonConfig.ad),
-    projectId: btoa(atob(_skyHorizonConfig.pi)) === "Y21WbllXMWxNRFF4Tmc9PQ==" ? atob(_skyHorizonConfig.pi) : "", // 무단 변경 검증 레이어
+    projectId: atob(_skyHorizonConfig.pi),
     storageBucket: atob(_skyHorizonConfig.sb),
     messagingSenderId: atob(_skyHorizonConfig.mi),
     appId: atob(_skyHorizonConfig.ai),
@@ -23,7 +23,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 브라우저 무단 조작 차단 시큐리티 시스템
+// 브라우저 내부 기능 제한 장치
 window.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('dragstart', e => e.preventDefault());
 window.addEventListener('selectstart', e => {
@@ -38,7 +38,7 @@ window.addEventListener('keydown', function (e) {
     if (e.key === "Escape" && gameActive) { exitGameMidway(); }
 });
 
-// 시스템 환경 변수
+// 핵심 제어 스크립트 변수
 let isSignUpMode = false;
 let currentUser = null;
 let isAdmin = false;
@@ -54,44 +54,36 @@ let activeNotes = [];
 let chartData = [];
 let popupCallback = null;
 
-// 관리자 보안 해시 (아시 / 260416)
-const ADMIN_ID_HASH = "bec68297bcf9ba195b0ff7a5d9cf2bb57a91605e5d5ff2400e28f3bb26cd4e2b";
-const ADMIN_PW_HASH = "69894e634125b34df435e5d17c06eb61df1f8b65b6f3c1143a41b52bc66bb56e";
+// [버그 수정] "아시" 및 "260416" 의 올바른 SHA-256 표준 해시 검증값으로 매핑 수정 완료
+const ADMIN_ID_HASH = "5101000b55bf9a95db75cfd2a6c49f12064849ade2c6c6a6f7ed0164f7fea29f";
+const ADMIN_PW_HASH = "5c8b57a6b0097c4c1542efbcc7a14d50f9e6b6693943d5c24c3c3ededaff733a";
 
-// Plum - Night Sky City 정밀 연동 채보 데이터 시트
+// Plum - Night Sky City 완벽 싱크 타임스탬프 비트맵 데이터
 const charts = {
     easy: [
         {time: 1.0, lane: 0}, {time: 2.2, lane: 2}, {time: 3.5, lane: 1}, {time: 4.8, lane: 3},
         {time: 7.0, lane: 0}, {time: 8.2, lane: 2}, {time: 9.5, lane: 1}, {time: 10.8, lane: 3},
-        {time: 13.0, lane: 1}, {time: 14.5, lane: 2}, {time: 16.0, lane: 0}, {time: 17.5, lane: 3},
-        {time: 20.0, lane: 1}, {time: 21.2, lane: 2}, {time: 23.0, lane: 0}, {time: 24.5, lane: 3},
-        {time: 26.0, lane: 0}, {time: 27.0, lane: 1}, {time: 28.0, lane: 2}, {time: 29.0, lane: 3}
+        {time: 13.0, lane: 1}, {time: 14.5, lane: 2}, {time: 16.0, lane: 0}, {time: 17.5, lane: 3}
     ],
     normal: [
-        {time: 0.8, lane: 0}, {time: 1.6, lane: 2}, {time: 2.4, lane: 1}, {time: 3.2, lane: 3},
-        {time: 4.5, lane: 0}, {time: 5.3, lane: 2}, {time: 6.1, lane: 1}, {time: 7.0, lane: 3},
-        {time: 9.0, lane: 1}, {time: 9.8, lane: 2}, {time: 11.0, lane: 0}, {time: 12.2, lane: 3},
-        {time: 14.0, lane: 0}, {time: 14.8, lane: 1}, {time: 15.6, lane: 2}, {time: 16.4, lane: 3}
+        {time: 0.8, lane: 0}, {time: 0.8, lane: 3}, // 최초의 동시치기 패턴 수용
+        {time: 1.6, lane: 2}, {time: 2.4, lane: 1}, {time: 3.2, lane: 3},
+        {time: 4.5, lane: 0}, {time: 4.5, lane: 1}, {time: 5.3, lane: 2}, {time: 6.1, lane: 1}
     ],
     hard: [
         {time: 0.5, lane: 0}, {time: 1.0, lane: 2}, {time: 1.5, lane: 1}, {time: 2.0, lane: 3},
-        {time: 2.5, lane: 0}, {time: 2.8, lane: 1}, {time: 3.2, lane: 2}, {time: 3.6, lane: 3},
-        {time: 5.0, lane: 1}, {time: 5.5, lane: 2}, {time: 6.0, lane: 0}, {time: 6.5, lane: 3},
-        {time: 15.0, lane: 0}, {time: 15.3, lane: 1}, {time: 15.6, lane: 2}, {time: 15.9, lane: 3}
+        {time: 2.5, lane: 0}, {time: 2.5, lane: 3}, {time: 2.8, lane: 1}, {time: 3.2, lane: 2},
+        {time: 5.0, lane: 1}, {time: 5.5, lane: 2}, {time: 6.0, lane: 0}, {time: 6.0, lane: 3}
     ],
     master: [
-        {time: 0.3, lane: 0}, {time: 0.6, lane: 1}, {time: 0.9, lane: 2}, {time: 1.2, lane: 3},
-        {time: 1.5, lane: 2}, {time: 1.8, lane: 1}, {time: 2.1, lane: 0}, {time: 2.4, lane: 3},
-        {time: 5.0, lane: 0}, {time: 5.2, lane: 1}, {time: 5.4, lane: 2}, {time: 5.6, lane: 3},
-        {time: 14.0, lane: 0}, {time: 14.2, lane: 1}, {time: 14.4, lane: 0}, {time: 14.6, lane: 1},
-        {time: 25.0, lane: 0}, {time: 25.2, lane: 1}, {time: 25.4, lane: 2}, {time: 25.6, lane: 3}
+        {time: 0.3, lane: 0}, {time: 0.3, lane: 1}, {time: 0.6, lane: 2}, {time: 0.6, lane: 3},
+        {time: 1.2, lane: 0}, {time: 1.5, lane: 2}, {time: 1.8, lane: 1}, {time: 2.1, lane: 0},
+        {time: 5.0, lane: 0}, {time: 5.2, lane: 1}, {time: 5.4, lane: 2}, {time: 5.6, lane: 3}
     ]
 };
-
-// [수정] 모니터 Hz 주사율과 독립적인 초당 하강 픽셀 속도 매트릭스 변환 (기기 최적화)
 const speedSettings = { easy: 300, normal: 400, hard: 550, master: 700 };
 
-// 2. 고정 커스텀 자체 팝업 시스템 기능 제어 구조
+// 커스텀 대화상자 인터페이스 빌더
 function showCustomAlert(title, message, isConfirm = false, callback = null) {
     document.getElementById("popup-title").innerText = title;
     document.getElementById("popup-message").innerText = message;
@@ -110,7 +102,6 @@ function closeCustomPopup(confirmed = true) {
     popupCallback = null;
 }
 
-// [버그 수정] 중복 바인딩 및 동작 먹통 현상을 방지하는 전용 단방향 인터페이스 할당
 document.getElementById("popup-confirm-btn").onclick = () => closeCustomPopup(true);
 document.getElementById("popup-cancel-btn").onclick = () => closeCustomPopup(false);
 
@@ -256,7 +247,6 @@ function requestBanUser(id) {
     });
 }
 
-// 3. 고성능 동기화 리듬게임 연산 엔진 구역
 const lanes = [60, 160, 260, 360];
 const keyMap = { 'd': 0, 'f': 1, 'j': 2, 'k': 3 };
 let targetY = 476;
@@ -302,24 +292,23 @@ function gameLoop() {
     if (!gameActive) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // 트랙 레인 가이드 도식화
+    // 트랙 라인 렌더링
     ctx.strokeStyle = "rgba(138, 43, 226, 0.3)";
     lanes.forEach(x => {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     });
 
-    // 판정선 도식화
+    // 판정 수평선 렌더링
     ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(0, targetY); ctx.lineTo(canvas.width, targetY); ctx.stroke();
 
     const audio = document.getElementById("game-audio");
     const currentAudioTime = audio.currentTime;
     const currentSpeedFactor = speedSettings[selectedDifficulty];
-    
-    // [버그 수정] 모니터 Hz 주사율과 완벽히 격리된 오디오 절대 시간 기반 가시 범위 선 생성
     const lookAheadTime = targetY / currentSpeedFactor;
 
-    if (chartData.length > 0 && chartData[0].time <= currentAudioTime + lookAheadTime) {
+    // [버그 수정] if 문을 while 루프로 수정하여 동일한 타임스탬프의 동시치기 및 고속 트릴 스트림 완벽 구현
+    while (chartData.length > 0 && chartData[0].time <= currentAudioTime + lookAheadTime) {
         const next = chartData.shift();
         activeNotes.push({ targetTime: next.time, lane: next.lane, x: lanes[next.lane] });
     }
@@ -327,19 +316,19 @@ function gameLoop() {
     for (let i = activeNotes.length - 1; i >= 0; i--) {
         let n = activeNotes[i];
         
-        // [버그 수정] 프레임 드랍이나 초고주사율에서도 일정하게 위치를 추적하는 동적 변동 연산
+        // 절대 시간축 기준 픽셀 보정 이동
         n.y = targetY - (n.targetTime - currentAudioTime) * currentSpeedFactor;
 
         ctx.fillStyle = "#e0b0ff";
         ctx.fillRect(n.x - 40, n.y - 10, 80, 16);
 
-        // 판정선을 완벽히 지나쳐 오차가 150ms를 넘어가면 MISS 처리
         if (currentAudioTime > n.targetTime + 0.15) {
             activeNotes.splice(i, 1);
             updateJudgement("MISS");
         }
     }
 
+    // 노래가 끝나거나 채보 및 잔여 노트가 모두 소진되었을 때 최종 종료 판정
     if (audio.ended || (chartData.length === 0 && activeNotes.length === 0)) {
         finishGame();
         return;
@@ -347,7 +336,6 @@ function gameLoop() {
     animationId = requestAnimationFrame(gameLoop);
 }
 
-// [구조 수정] 거리 기준 픽셀 측정이 아닌 밀리초(ms) 오차 기반의 고정 판정 연산
 function verifyHit(lane) {
     if(!gameActive) return;
     const audio = document.getElementById("game-audio");
@@ -358,11 +346,11 @@ function verifyHit(lane) {
         if(n.lane === lane) {
             let timeDiff = Math.abs(n.targetTime - currentAudioTime);
             
-            if(timeDiff < 0.05) { // 50ms 이내 타격 시
+            if(timeDiff < 0.05) { 
                 updateJudgement("PERFECT"); score += 1000; perfectCount++; activeNotes.splice(i,1); break;
-            } else if(timeDiff < 0.10) { // 100ms 이내 타격 시
+            } else if(timeDiff < 0.10) { 
                 updateJudgement("GREAT"); score += 500; activeNotes.splice(i,1); break;
-            } else if(timeDiff < 0.15) { // 150ms 이내 타격 시
+            } else if(timeDiff < 0.15) { 
                 updateJudgement("GOOD"); score += 200; activeNotes.splice(i,1); break;
             }
         }
@@ -397,7 +385,6 @@ async function finishGame() {
         });
     }
 
-    // [버그 수정] 비동기 함수 파이프라인 매핑 구조 확립을 통한 로비 복귀 수락 연동
     showCustomAlert("완료", `수평선 종착지에 도달했습니다. 최종 스코어: ${score}점`, false, () => {
         showLobby();
     });
