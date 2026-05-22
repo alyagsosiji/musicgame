@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>수평선 너머의 리듬게임</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+</head>
+<body oncontextmenu="return false" onselectstart="return false" ondragstart="return false">
+
+    <div class="stars"></div>
+    <div class="twinkling"></div>
+
+    <div id="auth-screen" class="screen active">
+        <h1 class="glow-text">수평선 너머의 리듬게임</h1>
+        <div class="auth-box">
+            <h2 id="auth-title">우주 진입 (로그인)</h2>
+            <input type="text" id="auth-id" placeholder="아이디를 입력하세요">
+            <input type="password" id="auth-pw" placeholder="비밀번호를 입력하세요">
+            <button id="btn-primary" onclick="handleAuth()">확인</button>
+            <p id="auth-toggle" onclick="toggleAuthMode()">새로운 여행자이신가요? 회원가입하기</p>
+        </div>
+    </div>
+
+    <div id="lobby-screen" class="screen">
+        <div class="lobby-header">
+            <span id="user-welcome">환영합니다!</span>
+            <button id="btn-admin" class="hidden" onclick="openAdminPanel()">관리자 패널</button>
+            <button onclick="handleLogout()">로그아웃</button>
+        </div>
+        
+        <h1 class="glow-text small">공간 선택 (DIFFICULTY)</h1>
+        <div class="difficulty-container">
+            <button class="diff-btn easy" onclick="startGame('easy')">EASY</button>
+            <button class="diff-btn normal" onclick="startGame('normal')">NORMAL</button>
+            <button class="diff-btn hard" onclick="startGame('hard')">HARD</button>
+            <button class="diff-btn master" onclick="startGame('master')">MASTER</button>
+        </div>
+
+        <div class="ranking-container">
+            <h2>수평선 너머 명예의 전당 (GLOBAL RANKING)</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>순위</th>
+                            <th>여행자 ID</th>
+                            <th>난이도</th>
+                            <th>점수</th>
+                            <th>Max Combo</th>
+                            <th>Perfect</th>
+                            <th>접속 기기</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-tbody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <div class="game-info">
+            <div id="game-combo">0 COMBO</div>
+            <div id="game-score">SCORE: 0</div>
+            <div id="game-judge">READY</div>
+        </div>
+        
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="mobile-controls">
+            <div class="touch-zone" data-key="d"></div>
+            <div class="touch-zone" data-key="f"></div>
+            <div class="touch-zone" data-key="j"></div>
+            <div class="touch-zone" data-key="k"></div>
+        </div>
+    </div>
+
+    <div id="admin-modal" class="modal">
+        <div class="modal-content">
+            <h2>우주 관리실 <span class="close" onclick="closeAdminPanel()">&times;</span></h2>
+            <div class="admin-section">
+                <h3>유저 및 랭킹 데이터 관리</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>유저 ID</th>
+                                <th>점수</th>
+                                <th>난이도</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="game-audio" src="music.mp3" preload="auto"></audio>
+
+    <script src="app.js"></script>
+</body>
+</html>
