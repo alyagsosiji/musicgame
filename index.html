@@ -183,7 +183,27 @@
             </div>
         </div>
     </div>
+    
+<div id="notice-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); justify-content: center; align-items: center; z-index: 9998;">
+    <div style="background: rgba(15, 10, 32, 0.98); border: 2px solid #00ffff; border-radius: 12px; width: 90%; max-width: 500px; padding: 25px; box-shadow: 0 0 30px rgba(0, 255, 255, 0.5); color: #d0d0f0; font-family: 'Malgun Gothic', sans-serif; box-sizing: border-box;">
+        
+        <h3 style="color: #00ffff; margin: 0 0 5px 0; font-size: 1.3rem; text-align: center; text-shadow: 0 0 10px rgba(0, 255, 255, 0.4); font-weight: bold;">
+            📢 은하 항해 통신실 (공지사항)
+        </h3>
+        <p style="font-size: 0.8rem; color: #a0a0c0; text-align: center; margin: 0 0 15px 0;">수평선 관리실에서 전하는 최신 프로토콜 리포트</p>
+        
+        <hr style="border: none; border-top: 1px solid rgba(0, 255, 255, 0.2); margin: 0 0 15px 0;">
 
+        <div id="notice-list-container" style="max-height: 300px; overflow-y: auto; padding-right: 5px; box-sizing: border-box;">
+            </div>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <button onclick="closeNoticeModal()" style="background: linear-gradient(135deg, #008080, #0b0814); border: 1px solid #00ffff; color: #ffffff; padding: 9px 28px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; cursor: pointer; box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); outline: none;">
+                통신 창 닫기
+            </button>
+        </div>
+    </div>
+</div>
     <div id="tos-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); justify-content: center; align-items: center; z-index: 9999;">
     
     <div style="background: rgba(15, 10, 30, 0.98); border: 2px solid #8a2be2; border-radius: 12px; width: 90%; max-width: 540px; padding: 25px; box-shadow: 0 0 30px rgba(138, 43, 226, 0.6); color: #d0d0f0; font-family: 'Malgun Gothic', sans-serif; box-sizing: border-box;">
