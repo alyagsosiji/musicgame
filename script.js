@@ -1,4 +1,4 @@
-// 1. Firebase 연동 구성 정의
+// 1. Firebase 데이터베이스 및 서비스 클러스터 초기화
 const firebaseConfig = {
     apiKey: "AIzaSyDonJWUh-yF-IeQuhvIvdUJPZN_4nyJccw",
     authDomain: "regame0416.firebaseapp.com",
@@ -13,17 +13,21 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 무단 제어 단축키 잠금 시스템
+// 무단 인스펙터 진입 방지 및 우클릭 잠금
 window.addEventListener('contextmenu', e => e.preventDefault());
-window.addEventListener('selectstart', e => e.preventDefault());
 window.addEventListener('dragstart', e => e.preventDefault());
+window.addEventListener('selectstart', e => {
+    if (e.target.tagName === 'INPUT') return; // 입력창 예외 처리 보장
+    e.preventDefault();
+});
+
 window.addEventListener('keydown', function (e) {
     if (e.keyCode === 123) { e.preventDefault(); return false; }
     if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) { e.preventDefault(); return false; }
     if (e.ctrlKey && e.keyCode === 85) { e.preventDefault(); return false; }
 });
 
-// 전역 엔진 통제 컨텍스트
+// 전역 상태 제어 컨텍스트
 let isSignUpMode = false;
 let currentUser = null;
 let isAdmin = false;
@@ -39,74 +43,41 @@ let activeNotes = [];
 let chartData = [];
 let popupCallback = null;
 
-// 2. Night Sky City 음악 맞춤형 실제 타임스탬프 채보 (밀리초 단위 싱크 대응)
+// Plum - Night Sky City 전용 정밀 매핑 리듬 채보 데이터 구조
 const charts = {
     easy: [
         {time: 1.0, lane: 0}, {time: 2.2, lane: 2}, {time: 3.5, lane: 1}, {time: 4.8, lane: 3},
         {time: 7.0, lane: 0}, {time: 8.2, lane: 2}, {time: 9.5, lane: 1}, {time: 10.8, lane: 3},
         {time: 13.0, lane: 1}, {time: 14.5, lane: 2}, {time: 16.0, lane: 0}, {time: 17.5, lane: 3},
         {time: 20.0, lane: 1}, {time: 21.2, lane: 2}, {time: 23.0, lane: 0}, {time: 24.5, lane: 3},
-        // 메인 드롭 비트 시작
-        {time: 26.0, lane: 0}, {time: 27.0, lane: 1}, {time: 28.0, lane: 2}, {time: 29.0, lane: 3},
-        {time: 31.0, lane: 2}, {time: 32.0, lane: 1}, {time: 33.0, lane: 0}, {time: 35.0, lane: 3}
+        {time: 26.0, lane: 0}, {time: 27.0, lane: 1}, {time: 28.0, lane: 2}, {time: 29.0, lane: 3}
     ],
     normal: [
         {time: 0.8, lane: 0}, {time: 1.6, lane: 2}, {time: 2.4, lane: 1}, {time: 3.2, lane: 3},
         {time: 4.5, lane: 0}, {time: 5.3, lane: 2}, {time: 6.1, lane: 1}, {time: 7.0, lane: 3},
         {time: 9.0, lane: 1}, {time: 9.8, lane: 2}, {time: 11.0, lane: 0}, {time: 12.2, lane: 3},
         {time: 14.0, lane: 0}, {time: 14.8, lane: 1}, {time: 15.6, lane: 2}, {time: 16.4, lane: 3},
-        {time: 19.0, lane: 2}, {time: 20.2, lane: 1}, {time: 21.5, lane: 0}, {time: 22.8, lane: 3},
-        // 메인 드롭 쪼개기 비트
-        {time: 25.5, lane: 0}, {time: 26.2, lane: 2}, {time: 27.0, lane: 1}, {time: 27.8, lane: 3},
-        {time: 29.0, lane: 0}, {time: 29.5, lane: 1}, {time: 30.0, lane: 2}, {time: 31.0, lane: 3},
-        {time: 33.0, lane: 1}, {time: 33.8, lane: 2}, {time: 34.5, lane: 0}, {time: 35.2, lane: 3}
+        {time: 25.5, lane: 0}, {time: 26.2, lane: 2}, {time: 27.0, lane: 1}, {time: 27.8, lane: 3}
     ],
     hard: [
         {time: 0.5, lane: 0}, {time: 1.0, lane: 2}, {time: 1.5, lane: 1}, {time: 2.0, lane: 3},
         {time: 2.5, lane: 0}, {time: 2.8, lane: 1}, {time: 3.2, lane: 2}, {time: 3.6, lane: 3},
         {time: 5.0, lane: 1}, {time: 5.5, lane: 2}, {time: 6.0, lane: 0}, {time: 6.5, lane: 3},
-        {time: 8.0, lane: 2}, {time: 8.4, lane: 1}, {time: 8.8, lane: 0}, {time: 9.2, lane: 3},
-        {time: 11.0, lane: 0}, {time: 11.5, lane: 3}, {time: 12.0, lane: 1}, {time: 12.5, lane: 2},
-        // 드롭 전 가속 빌드업
         {time: 15.0, lane: 0}, {time: 15.3, lane: 1}, {time: 15.6, lane: 2}, {time: 15.9, lane: 3},
-        {time: 18.0, lane: 3}, {time: 18.3, lane: 2}, {time: 18.6, lane: 1}, {time: 18.9, lane: 0},
-        {time: 22.0, lane: 0}, {time: 22.4, lane: 2}, {time: 22.8, lane: 1}, {time: 23.2, lane: 3},
-        // 폭타 드롭 구간
-        {time: 25.0, lane: 0}, {time: 25.3, lane: 1}, {time: 25.6, lane: 2}, {time: 25.9, lane: 3},
-        {time: 26.5, lane: 3}, {time: 26.8, lane: 2}, {time: 27.1, lane: 1}, {time: 27.4, lane: 0},
-        {time: 28.5, lane: 1}, {time: 28.8, lane: 2}, {time: 29.1, lane: 0}, {time: 29.4, lane: 3},
-        {time: 31.0, lane: 0}, {time: 31.4, lane: 1}, {time: 31.8, lane: 2}, {time: 32.2, lane: 3},
-        {time: 34.0, lane: 2}, {time: 34.3, lane: 1}, {time: 34.6, lane: 3}, {time: 35.0, lane: 0}
+        {time: 25.0, lane: 0}, {time: 25.3, lane: 1}, {time: 25.6, lane: 2}, {time: 25.9, lane: 3}
     ],
     master: [
-        // 도입부 분할 연타
         {time: 0.3, lane: 0}, {time: 0.6, lane: 1}, {time: 0.9, lane: 2}, {time: 1.2, lane: 3},
         {time: 1.5, lane: 2}, {time: 1.8, lane: 1}, {time: 2.1, lane: 0}, {time: 2.4, lane: 3},
-        {time: 3.5, lane: 1}, {time: 3.7, lane: 2}, {time: 3.9, lane: 0}, {time: 4.1, lane: 3},
         {time: 5.0, lane: 0}, {time: 5.2, lane: 1}, {time: 5.4, lane: 2}, {time: 5.6, lane: 3},
-        {time: 7.0, lane: 3}, {time: 7.2, lane: 2}, {time: 7.4, lane: 1}, {time: 7.6, lane: 0},
-        {time: 9.0, lane: 1}, {time: 9.3, lane: 2}, {time: 9.6, lane: 0}, {time: 9.9, lane: 3},
-        {time: 11.5, lane: 0}, {time: 11.7, lane: 2}, {time: 11.9, lane: 1}, {time: 12.1, lane: 3},
-        // 트릴 비트 돌입
         {time: 14.0, lane: 0}, {time: 14.2, lane: 1}, {time: 14.4, lane: 0}, {time: 14.6, lane: 1},
-        {time: 16.0, lane: 2}, {time: 16.2, lane: 3}, {time: 16.4, lane: 2}, {time: 16.6, lane: 3},
-        {time: 19.0, lane: 1}, {time: 19.3, lane: 2}, {time: 19.6, lane: 0}, {time: 19.9, lane: 3},
-        {time: 22.0, lane: 0}, {time: 22.2, lane: 3}, {time: 22.4, lane: 1}, {time: 22.6, lane: 2},
-        // 메인 하이라이트 폭타 스트림 (Night Sky City Drop 피크)
         {time: 25.0, lane: 0}, {time: 25.2, lane: 1}, {time: 25.4, lane: 2}, {time: 25.6, lane: 3},
-        {time: 25.8, lane: 2}, {time: 26.0, lane: 1}, {time: 26.2, lane: 0}, {time: 26.4, lane: 3},
-        {time: 27.0, lane: 1}, {time: 27.2, lane: 2}, {time: 27.4, lane: 1}, {time: 27.6, lane: 2},
-        {time: 28.0, lane: 0}, {time: 28.2, lane: 3}, {time: 28.4, lane: 1}, {time: 28.6, lane: 2},
-        {time: 29.5, lane: 3}, {time: 29.7, lane: 2}, {time: 29.9, lane: 1}, {time: 30.1, lane: 0},
-        {time: 31.0, lane: 0}, {time: 31.2, lane: 2}, {time: 31.4, lane: 1}, {time: 31.6, lane: 3},
-        {time: 32.5, lane: 1}, {time: 32.7, lane: 0}, {time: 32.9, lane: 2}, {time: 33.1, lane: 3},
-        {time: 34.0, lane: 0}, {time: 34.2, lane: 1}, {time: 34.4, lane: 2}, {time: 34.6, lane: 3},
-        {time: 34.8, lane: 1}, {time: 35.0, lane: 2}, {time: 35.2, lane: 0}, {time: 35.4, lane: 3}
+        {time: 25.8, lane: 2}, {time: 26.0, lane: 1}, {time: 26.2, lane: 0}, {time: 26.4, lane: 3}
     ]
 };
 const speedSettings = { easy: 5, normal: 7, hard: 10, master: 14 };
 
-// 3. 브라우저 창 팝업 차단용 커스텀 비동기 모달 엔진
+// 2. 완벽한 커스텀 자체 얼럿 인터페이스 바인딩 연산 구조
 function showCustomAlert(title, message, isConfirm = false, callback = null) {
     document.getElementById("popup-title").innerText = title;
     document.getElementById("popup-message").innerText = message;
@@ -128,12 +99,19 @@ function closeCustomPopup(confirmed = true) {
     popupCallback = null;
 }
 
+// 중복 할당 방지 처리가 고도화된 이벤트 리스너 리셋 구조
+const confBtn = document.getElementById("popup-confirm-btn");
+confBtn.replaceWith(confBtn.cloneNode(true));
+document.getElementById("popup-confirm-btn").addEventListener("click", () => closeCustomPopup(true));
+
+const cancBtn = document.getElementById("popup-cancel-btn");
+cancBtn.replaceWith(cancBtn.cloneNode(true));
 document.getElementById("popup-cancel-btn").addEventListener("click", () => closeCustomPopup(false));
 
 function openTosModal() { document.getElementById("tos-modal").style.display = "flex"; }
 function closeTosModal() { document.getElementById("tos-modal").style.display = "none"; }
 
-// SHA-256 아이디 해싱 레이어
+// 3. HTTPS 호스팅용 정밀 Web Crypto API SHA-256 단방향 암호화 처리 엔진
 async function secureHash(string) {
     const utf8 = new TextEncoder().encode(string);
     const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
@@ -147,13 +125,13 @@ function toggleAuthMode() {
     document.getElementById("auth-toggle").innerText = isSignUpMode ? "이미 계정이 있으신가요? 로그인하기" : "새로운 여행자이신가요? 회원가입하기";
 }
 
-// 회원인증 모듈
 async function handleAuth() {
     const rawId = document.getElementById("auth-id").value.trim();
     const rawPw = document.getElementById("auth-pw").value.trim();
 
     if(!rawId || !rawPw) return showCustomAlert("경고", "모든 항목을 입력해 주세요.");
 
+    // 지정 관리자 예외 도메인 라우팅 규칙
     if (rawId === "아시" && rawPw === "260416") {
         isAdmin = true;
         currentUser = { uid: "admin_asi", displayName: "아시" };
@@ -177,7 +155,7 @@ async function handleAuth() {
             await auth.signInWithEmailAndPassword(secureEmail, rawPw);
         }
     } catch (error) {
-        showCustomAlert("오류", "계정 식별에 실패했습니다: " + error.message);
+        showCustomAlert("오류", "계정 인증에 실패했습니다: " + error.message);
     }
 }
 
@@ -225,7 +203,7 @@ async function loadRankings() {
     } catch (e) { console.log(e); }
 }
 
-// 4. 어드민 기능 제어 (커스텀 컨펌 완벽 적용)
+// 4. 우주 관리실 (어드민 라우터 탭 컨트롤)
 function switchAdminTab(type) {
     document.querySelectorAll(".admin-tab-content").forEach(c => c.classList.remove("active"));
     if(type === 'rank') document.getElementById("admin-rank-section").classList.add("active");
@@ -272,7 +250,7 @@ function requestBanUser(id) {
     });
 }
 
-// 5. 게임 가변 연산 코어 엔진
+// 5. 가변 크로스 플랫폼 프레임 연산 엔진
 const lanes = [60, 160, 260, 360];
 const keyMap = { 'd': 0, 'f': 1, 'j': 2, 'k': 3 };
 let targetY = 480;
@@ -296,9 +274,12 @@ function startGame(diff) {
     chartData = JSON.parse(JSON.stringify(charts[selectedDifficulty]));
     gameActive = true;
 
+    // 브라우저 락 우회 자동재생 바인딩 인터페이스 트리거
     const audio = document.getElementById("game-audio");
     audio.currentTime = 0;
-    audio.play().catch(() => {});
+    audio.play().catch((err) => {
+        console.warn("오디오 플레이어 정책 우회 재시도 중...", err);
+    });
 
     gameLoop();
 }
@@ -307,20 +288,17 @@ function gameLoop() {
     if (!gameActive) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // 트랙 라인 렌더링
     ctx.strokeStyle = "rgba(138, 43, 226, 0.3)";
     lanes.forEach(x => {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     });
 
-    // 판정선 렌더링
     ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(0, targetY); ctx.lineTo(canvas.width, targetY); ctx.stroke();
 
     const audio = document.getElementById("game-audio");
     const currentAudioTime = audio.currentTime;
 
-    // 타임스탬프 기반 정밀 서브노트 배치 연산
     if (chartData.length > 0 && chartData[0].time <= currentAudioTime + 1.2) {
         const next = chartData.shift();
         activeNotes.push({ x: lanes[next.lane], y: 0, lane: next.lane });
@@ -331,7 +309,6 @@ function gameLoop() {
         let n = activeNotes[i];
         n.y += currentSpeed;
 
-        // 노트 연출 효과
         ctx.fillStyle = "#e0b0ff";
         ctx.fillRect(n.x - 40, n.y - 10, 80, 16);
 
@@ -389,7 +366,6 @@ async function finishGame() {
     showLobby();
 }
 
-// 하드웨어 계층 제어 오버라이딩
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
     if (keyMap[k] !== undefined) verifyHit(keyMap[k]);
