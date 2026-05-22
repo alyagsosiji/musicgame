@@ -145,22 +145,19 @@ const charts = {
     master: []
 };
 
-// [누락 해결] 전 난이도 음악 섹션별 빌드업/드롭 분할 맞춤형 채보 대량 생성기
+// 전 난이도 음악 섹션별 빌드업/드롭 분할 맞춤형 채보 대량 생성기
 (function generatePerfectCharts() {
-    // 0s ~ 16s: Intro (잔잔한 피아노) / 16s ~ 40s: Verse (비트 전개) / 40s ~ 52s: Build-up (밀도 상승) / 52s ~ 84s: Main Drop (최대 클라이맥스) / 84s ~ 100s: Outro
-    
-    // 1. HARD 채보 생성 (약 280노트)
     for (let t = 1.0; t < 100.0; t += 0.4) {
         let lane = Math.floor((t * 9) % 4);
         if (t < 16.0) {
             if (Math.floor(t * 10) % 8 === 0) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
         } else if (t >= 16.0 && t < 40.0) {
             if (Math.floor(t * 10) % 4 === 0) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
-            if (Math.floor(t) % 2 === 0 && Math.floor(t * 10) % 8 === 0) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 }); // 간헐적 동시타
-        } else if (t >= 40.0 && t < 52.0) { // 고밀도 고조
+            if (Math.floor(t) % 2 === 0 && Math.floor(t * 10) % 8 === 0) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 }); 
+        } else if (t >= 40.0 && t < 52.0) { 
             charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
             if (Math.floor(t * 10) % 8 === 0) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 1) % 4 });
-        } else if (t >= 52.0 && t < 84.0) { // 하이라이트 드롭 폭타
+        } else if (t >= 52.0 && t < 84.0) { 
             charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
             charts.hard.push({ time: parseFloat((t + 0.2).toFixed(2)), lane: (lane + 1) % 4 });
         } else {
@@ -168,7 +165,6 @@ const charts = {
         }
     }
 
-    // 2. MASTER 채보 생성 (약 480노트 - 16비트 양손 트릴 및 계단 배치 완성)
     for (let t = 0.5; t < 100.0; t += 0.2) {
         let lane = Math.floor((t * 17) % 4);
         if (t < 16.0) {
@@ -176,10 +172,10 @@ const charts = {
         } else if (t >= 16.0 && t < 40.0) {
             charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
             if (Math.floor(t * 10) % 6 === 0) charts.master.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 3) % 4 });
-        } else if (t >= 40.0 && t < 52.0) { // 빌드업 16비트 난타
+        } else if (t >= 40.0 && t < 52.0) { 
             charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
             charts.master.push({ time: parseFloat((t + 0.1).toFixed(2)), lane: (lane + 1) % 4 });
-        } else if (t >= 52.0 && t < 84.0) { // 드롭 폭타 및 3노트 복합 폭격
+        } else if (t >= 52.0 && t < 84.0) { 
             charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
             charts.master.push({ time: parseFloat((t + 0.1).toFixed(2)), lane: (lane + 1) % 4 });
             if (Math.floor(t * 10) % 4 === 0) {
@@ -205,6 +201,18 @@ function preCacheGradients() {
     });
 }
 
+// [정상화 복구] 배속(속도) 제어 및 UI 갱신 함수
+function adjustNoteSpeed(amount) {
+    let nextSpeed = noteSpeedMultiplier + amount;
+    if (nextSpeed >= 1.0 && nextSpeed <= 9.5) {
+        noteSpeedMultiplier = nextSpeed;
+        const speedDisplay = document.getElementById("speed-display-value");
+        if (speedDisplay) {
+            speedDisplay.innerText = noteSpeedMultiplier.toFixed(1);
+        }
+    }
+}
+
 function showCustomAlert(title, message, isConfirm = false, callback = null) {
     document.getElementById("popup-title").innerText = title;
     document.getElementById("popup-message").innerText = message;
@@ -227,7 +235,6 @@ document.getElementById("popup-confirm-btn").onclick = () => closeCustomPopup(tr
 document.getElementById("popup-cancel-btn").onclick = () => closeCustomPopup(false);
 
 function openTosModal() { document.getElementById("tos-modal").style.display = "flex"; }
-// [오타 수정 완료] style.none 버그 교정 완료
 function closeTosModal() { document.getElementById("tos-modal").style.display = "none"; }
 
 // SHA-256 암호화
@@ -377,7 +384,7 @@ function showLobby(fallbackName = "") {
     document.getElementById("lobby-screen").classList.add("active");
     
     const finalRenderName = currentUser ? (currentUser.displayName || fallbackName || "여행자") : (fallbackName || "여행자");
-    document.getElementById("user-welcome").innerText = `수평선 너머에 오신 것을 황영합니다, ${finalRenderName} 여행자님!`;
+    document.getElementById("user-welcome").innerText = `반갑습니다, ${finalRenderName} 여행자님!`;
     
     startRealtimeRankings();
 }
@@ -647,6 +654,7 @@ function createSparks(startX, startY) {
     }
 }
 
+// [정밀 보완] 라인별 가장 오래된 단일 노트 대상 판정 트래킹 엔진
 function verifyHit(lane) {
     if(!gameActive) return;
     const currentAudioTime = (performance.now() - audioStartTime) / 1000;
@@ -656,16 +664,21 @@ function verifyHit(lane) {
         if(n.lane === lane) {
             let timeDiff = Math.abs(n.targetTime - currentAudioTime);
             
-            if(timeDiff < 0.05) { 
-                updateJudgement("PERFECT"); score += 1000; perfectCount++; 
-                createSparks(n.x, targetY); activeNotes.splice(i,1); break;
-            } else if(timeDiff < 0.10) { 
-                updateJudgement("GREAT"); score += 500; greatCount++;
-                createSparks(n.x, targetY); activeNotes.splice(i,1); break;
-            } else if(timeDiff < 0.15) { 
-                updateJudgement("GOOD"); score += 200; goodCount++;
-                createSparks(n.x, targetY); activeNotes.splice(i,1); break;
+            // 해당 레인에서 가장 하단에 도달한 최선행 노트만 판정 타겟팅
+            if(timeDiff < 0.15) { 
+                if(timeDiff < 0.05) { 
+                    updateJudgement("PERFECT"); score += 1000; perfectCount++; 
+                } else if(timeDiff < 0.10) { 
+                    updateJudgement("GREAT"); score += 500; greatCount++;
+                } else { 
+                    updateJudgement("GOOD"); score += 200; goodCount++;
+                }
+                createSparks(n.x, targetY); 
+                activeNotes.splice(i, 1); 
+                break;
             }
+            // 최선행 노트가 판정선 범위 밖에 있다면, 후선 노트 연산을 원천 차단하여 판정 꼬임 방지
+            break; 
         }
     }
 }
@@ -721,6 +734,11 @@ async function finishGame() {
 
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
+    
+    // [단축키 보완] 키보드 단축키를 이용한 배속 변경 핫키 매핑 기능 추가
+    if (e.key === "[") { adjustNoteSpeed(-0.5); return; }
+    if (e.key === "]") { adjustNoteSpeed(0.5); return; }
+    
     if (keyMap[k] !== undefined) {
         lanePressed[keyMap[k]] = true;
         verifyHit(keyMap[k]);
