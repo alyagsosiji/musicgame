@@ -23,7 +23,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 브라우저 내부 기능 제한 장치
+// 브라우저 내부 무단 제어 장치 잠금
 window.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('dragstart', e => e.preventDefault());
 window.addEventListener('selectstart', e => {
@@ -38,7 +38,7 @@ window.addEventListener('keydown', function (e) {
     if (e.key === "Escape" && gameActive) { exitGameMidway(); }
 });
 
-// 핵심 제어 스크립트 변수
+// 핵심 제어 전역 변수
 let isSignUpMode = false;
 let currentUser = null;
 let isAdmin = false;
@@ -54,11 +54,14 @@ let activeNotes = [];
 let chartData = [];
 let popupCallback = null;
 
-// [버그 수정] "아시" 및 "260416" 의 올바른 SHA-256 표준 해시 검증값으로 매핑 수정 완료
+// [추가] 자연스러운 화면 연출을 위한 레인 상태 배열 및 파티클 리스트 변수 선언
+let lanePressed = [false, false, false, false];
+let hitParticles = [];
+
 const ADMIN_ID_HASH = "5101000b55bf9a95db75cfd2a6c49f12064849ade2c6c6a6f7ed0164f7fea29f";
 const ADMIN_PW_HASH = "5c8b57a6b0097c4c1542efbcc7a14d50f9e6b6693943d5c24c3c3ededaff733a";
 
-// Plum - Night Sky City 완벽 싱크 타임스탬프 비트맵 데이터
+// Plum - Night Sky City 비트맵 채보 데이터 정보
 const charts = {
     easy: [
         {time: 1.0, lane: 0}, {time: 2.2, lane: 2}, {time: 3.5, lane: 1}, {time: 4.8, lane: 3},
@@ -66,19 +69,17 @@ const charts = {
         {time: 13.0, lane: 1}, {time: 14.5, lane: 2}, {time: 16.0, lane: 0}, {time: 17.5, lane: 3}
     ],
     normal: [
-        {time: 0.8, lane: 0}, {time: 0.8, lane: 3}, // 최초의 동시치기 패턴 수용
+        {time: 0.8, lane: 0}, {time: 0.8, lane: 3}, 
         {time: 1.6, lane: 2}, {time: 2.4, lane: 1}, {time: 3.2, lane: 3},
         {time: 4.5, lane: 0}, {time: 4.5, lane: 1}, {time: 5.3, lane: 2}, {time: 6.1, lane: 1}
     ],
     hard: [
         {time: 0.5, lane: 0}, {time: 1.0, lane: 2}, {time: 1.5, lane: 1}, {time: 2.0, lane: 3},
-        {time: 2.5, lane: 0}, {time: 2.5, lane: 3}, {time: 2.8, lane: 1}, {time: 3.2, lane: 2},
-        {time: 5.0, lane: 1}, {time: 5.5, lane: 2}, {time: 6.0, lane: 0}, {time: 6.0, lane: 3}
+        {time: 2.5, lane: 0}, {time: 2.5, lane: 3}, {time: 2.8, lane: 1}, {time: 3.2, lane: 2}
     ],
     master: [
         {time: 0.3, lane: 0}, {time: 0.3, lane: 1}, {time: 0.6, lane: 2}, {time: 0.6, lane: 3},
-        {time: 1.2, lane: 0}, {time: 1.5, lane: 2}, {time: 1.8, lane: 1}, {time: 2.1, lane: 0},
-        {time: 5.0, lane: 0}, {time: 5.2, lane: 1}, {time: 5.4, lane: 2}, {time: 5.6, lane: 3}
+        {time: 1.2, lane: 0}, {time: 1.5, lane: 2}, {time: 1.8, lane: 1}, {time: 2.1, lane: 0}
     ]
 };
 const speedSettings = { easy: 300, normal: 400, hard: 550, master: 700 };
@@ -247,6 +248,7 @@ function requestBanUser(id) {
     });
 }
 
+// 3. 고성능 동기화 리듬게임 그래픽 연산 엔진
 const lanes = [60, 160, 260, 360];
 const keyMap = { 'd': 0, 'f': 1, 'j': 2, 'k': 3 };
 let targetY = 476;
@@ -267,13 +269,37 @@ function startGame(diff) {
     
     score = 0; combo = 0; maxCombo = 0; perfectCount = 0;
     activeNotes = [];
+    hitParticles = [];
+    lanePressed = [false, false, false, false];
     chartData = JSON.parse(JSON.stringify(charts[selectedDifficulty]));
-    gameActive = true;
 
+    // [추가] 브라우저 로컬 저장소를 검사하여 첫 실행 유저에게만 조작 가이드 노출
+    if (!localStorage.getItem("horizon_tutorial_seen")) {
+        document.getElementById("tutorial-overlay").style.display = "flex";
+        if(currentPlatform === "Mobile") {
+            document.getElementById("guide-desktop").classList.add("hidden");
+            document.getElementById("guide-mobile").classList.remove("hidden");
+        } else {
+            document.getElementById("guide-desktop").classList.remove("hidden");
+            document.getElementById("guide-mobile").classList.add("hidden");
+        }
+    } else {
+        triggerAudioAndLoop();
+    }
+}
+
+// [추가] 가이드 창 닫기 및 게임 연동 실행 브릿지 함수
+function closeTutorialAndStart() {
+    document.getElementById("tutorial-overlay").style.display = "none";
+    localStorage.setItem("horizon_tutorial_seen", "true"); // 로컬 스토리지에 첫 확인 저장
+    triggerAudioAndLoop();
+}
+
+function triggerAudioAndLoop() {
+    gameActive = true;
     const audio = document.getElementById("game-audio");
     audio.currentTime = 0;
     audio.play().catch((err) => { console.warn(err); });
-
     gameLoop();
 }
 
@@ -292,35 +318,49 @@ function gameLoop() {
     if (!gameActive) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // 트랙 라인 렌더링
-    ctx.strokeStyle = "rgba(138, 43, 226, 0.3)";
-    lanes.forEach(x => {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-    });
-
-    // 판정 수평선 렌더링
-    ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(0, targetY); ctx.lineTo(canvas.width, targetY); ctx.stroke();
-
     const audio = document.getElementById("game-audio");
     const currentAudioTime = audio.currentTime;
     const currentSpeedFactor = speedSettings[selectedDifficulty];
     const lookAheadTime = targetY / currentSpeedFactor;
 
-    // [버그 수정] if 문을 while 루프로 수정하여 동일한 타임스탬프의 동시치기 및 고속 트릴 스트림 완벽 구현
+    // [추가] 리액티브 그래픽스: 사용자가 누르고 있는 라인(레인)에 그라데이션 글로우 구현
+    for(let l=0; l<4; l++) {
+        if(lanePressed[l]) {
+            let grad = ctx.createLinearGradient(lanes[l]-50, 0, lanes[l]+50, canvas.height);
+            grad.addColorStop(0, "rgba(138, 43, 226, 0.0)");
+            grad.addColorStop(0.85, "rgba(138, 43, 226, 0.25)");
+            grad.addColorStop(1, "rgba(0, 255, 255, 0.1)");
+            ctx.fillStyle = grad;
+            ctx.fillRect(lanes[l]-46, 0, 92, canvas.height);
+        }
+    }
+
+    // 기본 트랙 격자 라인 그리기
+    ctx.strokeStyle = "rgba(138, 43, 226, 0.3)";
+    lanes.forEach(x => {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    });
+
+    // 판정선 그리기
+    ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(0, targetY); ctx.lineTo(canvas.width, targetY); ctx.stroke();
+
     while (chartData.length > 0 && chartData[0].time <= currentAudioTime + lookAheadTime) {
         const next = chartData.shift();
         activeNotes.push({ targetTime: next.time, lane: next.lane, x: lanes[next.lane] });
     }
 
+    // 노트 연산 및 세련된 네온 알약 스타일 렌더링
     for (let i = activeNotes.length - 1; i >= 0; i--) {
         let n = activeNotes[i];
-        
-        // 절대 시간축 기준 픽셀 보정 이동
         n.y = targetY - (n.targetTime - currentAudioTime) * currentSpeedFactor;
 
-        ctx.fillStyle = "#e0b0ff";
-        ctx.fillRect(n.x - 40, n.y - 10, 80, 16);
+        // 자연스러운 입체감의 그라데이션 광원 노트
+        let noteGrad = ctx.createLinearGradient(n.x - 40, n.y - 10, n.x + 40, n.y + 6);
+        noteGrad.addColorStop(0, "#ff00ff");
+        noteGrad.addColorStop(1, "#00ffff");
+        ctx.fillStyle = noteGrad;
+        ctx.fillRect(n.x - 44, n.y - 9, 88, 18);
 
         if (currentAudioTime > n.targetTime + 0.15) {
             activeNotes.splice(i, 1);
@@ -328,12 +368,41 @@ function gameLoop() {
         }
     }
 
-    // 노래가 끝나거나 채보 및 잔여 노트가 모두 소진되었을 때 최종 종료 판정
+    // [추가] 파티클 스파크 효과 루프 드로우 연산
+    for (let p = hitParticles.length - 1; p >= 0; p--) {
+        let pt = hitParticles[p];
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        pt.alpha -= 0.04;
+        if(pt.alpha <= 0) {
+            hitParticles.splice(p, 1);
+            continue;
+        }
+        ctx.fillStyle = `rgba(0, 255, 255, ${pt.alpha})`;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
     if (audio.ended || (chartData.length === 0 && activeNotes.length === 0)) {
         finishGame();
         return;
     }
     animationId = requestAnimationFrame(gameLoop);
+}
+
+// [추가] 우주 별가루 폭발 연출 엔진 알고리즘
+function createSparks(startX, startY) {
+    for(let i=0; i<15; i++) {
+        hitParticles.push({
+            x: startX,
+            y: startY,
+            vx: (Math.random() - 0.5) * 8,
+            vy: (Math.random() - 0.7) * 8,
+            size: Math.random() * 3 + 1,
+            alpha: 1.0
+        });
+    }
 }
 
 function verifyHit(lane) {
@@ -347,11 +416,17 @@ function verifyHit(lane) {
             let timeDiff = Math.abs(n.targetTime - currentAudioTime);
             
             if(timeDiff < 0.05) { 
-                updateJudgement("PERFECT"); score += 1000; perfectCount++; activeNotes.splice(i,1); break;
+                updateJudgement("PERFECT"); score += 1000; perfectCount++; 
+                createSparks(n.x, targetY); // 이펙트 생성 호출
+                activeNotes.splice(i,1); break;
             } else if(timeDiff < 0.10) { 
-                updateJudgement("GREAT"); score += 500; activeNotes.splice(i,1); break;
+                updateJudgement("GREAT"); score += 500; 
+                createSparks(n.x, targetY);
+                activeNotes.splice(i,1); break;
             } else if(timeDiff < 0.15) { 
-                updateJudgement("GOOD"); score += 200; activeNotes.splice(i,1); break;
+                updateJudgement("GOOD"); score += 200; 
+                createSparks(n.x, targetY);
+                activeNotes.splice(i,1); break;
             }
         }
     }
@@ -390,13 +465,31 @@ async function finishGame() {
     });
 }
 
+// 4. 입력 장치 분할 제어 맵핑 구역 (Glow 효과 바인딩 포함)
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
-    if (keyMap[k] !== undefined) verifyHit(keyMap[k]);
+    if (keyMap[k] !== undefined) {
+        lanePressed[keyMap[k]] = true; // 누름 감지
+        verifyHit(keyMap[k]);
+    }
 });
+
+window.addEventListener("keyup", e => {
+    const k = e.key.toLowerCase();
+    if (keyMap[k] !== undefined) {
+        lanePressed[keyMap[k]] = false; // 뗌 감지
+    }
+});
+
 document.querySelectorAll(".touch-zone").forEach(z => {
+    const currentLane = keyMap[z.getAttribute("data-key")];
     z.addEventListener("touchstart", e => {
         e.preventDefault();
-        verifyHit(keyMap[z.getAttribute("data-key")]);
+        lanePressed[currentLane] = true;
+        verifyHit(currentLane);
+    });
+    z.addEventListener("touchend", e => {
+        e.preventDefault();
+        lanePressed[currentLane] = false;
     });
 });
