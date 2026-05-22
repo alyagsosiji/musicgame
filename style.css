@@ -302,3 +302,39 @@ th { color: #ff00ff; }
     .mobile-controls { display: grid; }
     .canvas-container { height: 60vh; }
 }
+/* 수평선 리듬게임 푸터 스타일 */
+.horizon-footer {
+    width: 100%;
+    background: rgba(11, 8, 20, 0.85); /* 딥 스페이스 블랙 */
+    backdrop-filter: blur(8px); /* 배후 화면 블러 효과 */
+    border-top: 1px solid rgba(138, 43, 226, 0.3); /* 은은한 보라색 선 */
+    padding: 15px 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #a0a0c0;
+    letter-spacing: 0.5px;
+    z-index: 10;
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.5);
+}
+
+.footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.footer-container p {
+    margin: 4px 0;
+}
+
+/* 음악 정보 강조색 (형광 민트) */
+.music-credit strong {
+    color: #00ffff;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+}
+
+/* 게임 개발자 강조색 (네온 핑크) */
+.game-credit strong {
+    color: #ff00ff;
+    text-shadow: 0 0 8px rgba(255, 0, 255, 0.4);
+}
