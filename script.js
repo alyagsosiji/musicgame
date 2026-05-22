@@ -1,9 +1,9 @@
 // =========================================================================
-// 1. 수평선 은하 시스템 환경 설정 및 국소 파이어베이스 동기화 코어
+// 1. 수평선 은하 시스템 환경 설정 및 파이어베이스 코어 구성
 // =========================================================================
 const _skyHorizonConfig = {
     ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
-    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=",
+    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC.jb20=",
     pi: "cmVnYW1lMDQxNg==",
     sb: "cmVnYW1lMDQxNi5maXJlYmFzZXN0b3JhZ2UuYXBw",
     mi: "MjE5Mjc1NjM2MjU1",
@@ -25,7 +25,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 📢 코드 직접 수정형 공지사항 시트 데이터베이스 (이곳에서 공지를 변경하세요)
+// 📢 [수정 가능 영역] 직접 작성하는 코드 기반 공지사항 시트 데이터베이스
 const horizonNotices = [
     {
         date: "2026-05-22",
@@ -165,7 +165,7 @@ const charts = {
     master: []
 };
 
-// 하드/마스터 고밀도 채보 연산기
+// 하드/마스터 고밀도 채보 자동 빌더
 (function generatePerfectCharts() {
     for (let t = 1.0; t < 16.0; t += 0.8) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 3) % 4 });
     for (let t = 16.0; t < 40.0; t += 0.4) {
@@ -198,8 +198,35 @@ const charts = {
     charts.master.sort((a, b) => a.time - b.time);
 })();
 
+function preCacheGradients() {
+    if (!canvas) return;
+    cachedNoteGradients = lanes.map(x => {
+        let g = ctx.createLinearGradient(x - 40, 0, x + 40, 0);
+        g.addColorStop(0, "#ff00ff");
+        g.addColorStop(1, "#00ffff");
+        return g;
+    });
+}
+
+function adjustNoteSpeed(amount) {
+    let nextSpeed = noteSpeedMultiplier + amount;
+    if (nextSpeed >= 1.0 && nextSpeed <= 9.5) {
+        noteSpeedMultiplier = nextSpeed;
+        const speedDisplay = document.getElementById("speed-display-value");
+        if (speedDisplay) speedDisplay.innerText = noteSpeedMultiplier.toFixed(1);
+    }
+}
+
+function adjustAudioOffset(amount) {
+    audioOffset = parseFloat((audioOffset + amount).toFixed(3));
+    const offsetDisplay = document.getElementById("offset-display-value");
+    if (offsetDisplay) {
+        offsetDisplay.innerText = (audioOffset > 0 ? "+" : "") + audioOffset.toFixed(3) + "s";
+    }
+}
+
 // =========================================================================
-// 3. UI 바인딩 및 전역 윈도우 인터페이스 오픈 함수군 (버튼 먹통 완벽 조치)
+// 3. UI 팝업 / 알림창 / 모달 및 약관 동의 검증 제어부
 // =========================================================================
 function showCustomAlert(title, message, isConfirm = false, callback = null) {
     document.getElementById("popup-title").innerText = title;
@@ -218,6 +245,31 @@ function closeCustomPopup(confirmed = true) {
 
 function openTosModal() { document.getElementById("tos-modal").style.display = "flex"; }
 function closeTosModal() { document.getElementById("tos-modal").style.display = "none"; }
+
+function openNoticeModal() {
+    const container = document.getElementById("notice-list-container");
+    if (container) {
+        container.innerHTML = ""; 
+        horizonNotices.forEach(notice => {
+            container.innerHTML += `
+                <div style="background: rgba(138, 43, 226, 0.08); border: 1px solid rgba(0, 255, 255, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 12px; box-sizing: border-box;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="color: #ffffff; font-weight: bold; font-size: 0.95rem;">${notice.title}</span>
+                        <span style="color: #8a2be2; font-size: 0.78rem; font-family: monospace;">${notice.date}</span>
+                    </div>
+                    <p style="margin: 0; font-size: 0.85rem; color: #b0b0d8; line-height: 1.5; text-align: left; white-space: pre-wrap;">${notice.content}</p>
+                </div>
+            `;
+        });
+    }
+    const noticeModal = document.getElementById("notice-modal");
+    if (noticeModal) noticeModal.style.display = "flex";
+}
+
+function closeNoticeModal() {
+    const noticeModal = document.getElementById("notice-modal");
+    if (noticeModal) noticeModal.style.display = "none";
+}
 
 function toggleAuthMode() {
     isSignUpMode = !isSignUpMode;
@@ -239,12 +291,12 @@ function toggleAuthMode() {
     }
 }
 
+// 🔒 [요청사항 완벽 반영] 체크 안하고 가입버튼 클릭 시 자체 안내 알림 발동 및 모달 연동
 async function handleAuth() {
     const rawId = document.getElementById("auth-id").value.trim();
     const rawPw = document.getElementById("auth-pw").value.trim();
     if(!rawId || !rawPw) return showCustomAlert("경고", "모든 항목을 입력해 주세요.");
 
-    // 🔒 [요청사항 반영] 체크 미동의 시 자체 제작 알림창으로 확인 유도 가드
     if (isSignUpMode) {
         const tosCheckbox = document.getElementById("tos-checkbox");
         if (tosCheckbox && !tosCheckbox.checked) {
@@ -294,8 +346,10 @@ function handleLogout() {
 }
 
 function showLobby(fallbackName = "") {
+    const lobbyScreen = document.getElementById("lobby-screen");
+    if (!lobbyScreen) return; 
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-    document.getElementById("lobby-screen").classList.add("active");
+    lobbyScreen.classList.add("active");
     const finalRenderName = currentUser ? (currentUser.displayName || fallbackName || "여행자") : (fallbackName || "여행자");
     document.getElementById("user-welcome").innerText = `반갑습니다, ${finalRenderName} 여행자님!`;
     startRealtimeRankings();
@@ -304,6 +358,7 @@ function showLobby(fallbackName = "") {
 function startRealtimeRankings() {
     if (rankingUnsubscribe) rankingUnsubscribe();
     const tbody = document.getElementById("ranking-tbody");
+    if (!tbody) return;
     rankingUnsubscribe = db.collection("horizon_rankings").orderBy("score", "desc").limit(20)
         .onSnapshot((snapshot) => {
             tbody.innerHTML = ""; let rank = 1;
@@ -353,21 +408,35 @@ function requestBanUser(id) {
     });
 }
 
-// 윈도우 전역 스코프 바인딩 가드 (HTML inline onclick 연동 안정화)
-window.showCustomAlert = showCustomAlert; window.closeCustomPopup = closeCustomPopup;
-window.openTosModal = openTosModal; window.closeTosModal = closeTosModal;
-window.toggleAuthMode = toggleAuthMode; window.handleAuth = handleAuth;
-window.handleLogout = handleLogout; window.switchAdminTab = switchAdminTab;
-window.openAdminPanel = openAdminPanel; window.closeAdminPanel = closeAdminPanel;
-window.requestDeleteRank = requestDeleteRank; window.requestBanUser = requestBanUser;
-window.openNoticeModal = openNoticeModal; window.closeNoticeModal = closeNoticeModal;
+// =========================================================================
+// 4. 인게임 포즈(Pause) 및 미세 싱크 동기화 시스템 하드웨어 연산
+// =========================================================================
+function togglePauseGame() {
+    if (!gameActive && !isPaused) return; 
+    const audio = document.getElementById("game-audio");
+    const pauseOverlay = document.getElementById("pause-overlay");
 
-// =========================================================================
-// 4. 리듬게임 핵심 그래픽 및 오디오 연산 파트
-// =========================================================================
+    if (!isPaused) {
+        isPaused = true; gameActive = false; 
+        if (audio) audio.pause();
+        pauseStartTime = performance.now(); cancelAnimationFrame(animationId);
+        if (pauseOverlay) pauseOverlay.style.display = "flex";
+        document.getElementById("game-judge").innerText = "PAUSED";
+    } else {
+        isPaused = false; gameActive = true;
+        if (pauseOverlay) pauseOverlay.style.display = "none";
+        document.getElementById("game-judge").innerText = "";
+        if (audio) {
+            audio.play().then(() => { lastTimeSync += (performance.now() - pauseStartTime); gameLoop(); })
+            .catch(() => { lastTimeSync += (performance.now() - pauseStartTime); gameLoop(); });
+        }
+    }
+}
+
 function fitCanvasSize() { if (!canvas) return; canvas.width = 420; canvas.height = 560; targetY = canvas.height * 0.85; preCacheGradients(); }
 function rmChartSafely(obj) { return JSON.stringify(obj); }
-window.startGame = function(diff) {
+
+function startGame(diff) {
     if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
     selectedDifficulty = diff; fitCanvasSize();
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
@@ -383,17 +452,17 @@ window.startGame = function(diff) {
         if(currentPlatform === "Mobile") { document.getElementById("guide-desktop").classList.add("hidden"); document.getElementById("guide-mobile").classList.remove("hidden"); }
         else { document.getElementById("guide-desktop").classList.remove("hidden"); document.getElementById("guide-mobile").classList.add("hidden"); }
     } else { triggerAudioAndLoop(); }
-};
+}
 
-window.closeTutorialAndStart = function() { document.getElementById("tutorial-overlay").style.display = "none"; localStorage.setItem("horizon_tutorial_seen", "true"); triggerAudioAndLoop(); };
-window.exitGameMidway = function() {
+function closeTutorialAndStart() { document.getElementById("tutorial-overlay").style.display = "none"; localStorage.setItem("horizon_tutorial_seen", "true"); triggerAudioAndLoop(); }
+function exitGameMidway() {
     showCustomAlert("중도 하차", "진행 기록을 취소하고 대기실로 복귀하시겠습니까?", true, () => {
         gameActive = false; isPaused = false; if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
         chartData = []; activeNotes = []; const audio = document.getElementById("game-audio"); if (audio) { audio.pause(); audio.currentTime = 0; }
         const pauseOverlay = document.getElementById("pause-overlay"); if (pauseOverlay) pauseOverlay.style.display = "none";
         showLobby();
     });
-};
+}
 
 function triggerAudioAndLoop() {
     if (animationId) cancelAnimationFrame(animationId);
@@ -479,7 +548,7 @@ async function finishGame() {
     showCustomAlert(englishLiveTitle, `SCORE: ${score.toLocaleString()}   |   MAX COMBO: ${maxCombo}`, false, () => { showLobby(); });
 }
 
-// 고성능 키 이벤트 감지 장치 및 옵셋/배속 제어 모듈
+// 고성능 하드웨어 키보드 리스너
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
     if (e.key === "[") { adjustNoteSpeed(-0.5); return; } if (e.key === "]") { adjustNoteSpeed(0.5); return; }
@@ -489,13 +558,95 @@ window.addEventListener("keydown", e => {
 });
 window.addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (keyMap[k] !== undefined) lanePressed[keyMap[k]] = false; });
 
-// 하드웨어 로딩 시점 안전 배치 가드
+// SHA-256 암호화
+async function secureHash(string) {
+    if (window.crypto && crypto.subtle && crypto.subtle.digest) {
+        try {
+            const utf8 = new TextEncoder().encode(string);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {}
+    }
+    const rotateRight = (n, x) => (n >>> x) | (n << (32 - x));
+    const K = [
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ];
+    let H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    const words = []; const ascii = unescape(encodeURIComponent(string));
+    for (let i = 0; i < ascii.length; i++) words[i >> 2] |= ascii.charCodeAt(i) << (24 - (i % 4) * 8);
+    const bits = ascii.length * 8; words[ascii.length >> 2] |= 0x80 << (24 - (ascii.length % 4) * 8);
+    while ((words.length * 32) % 512 !== 448) words.push(0); words.push(Math.floor(bits / 4294967296)); words.push(bits & 0xffffffff);
+    
+    for (let i = 0; i < words.length; i += 16) {
+        let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7]; const stage = new Array(64);
+        for (let j = 0; j < 64; j++) {
+            if (j < 16) stage[j] = words[i + j];
+            else {
+                const s0 = rotateRight(stage[j - 15], 7) ^ rotateRight(stage[j - 15], 18) ^ (stage[j - 15] >>> 3);
+                const s1 = rotateRight(stage[j - 2], 17) ^ rotateRight(stage[j - 2], 19) ^ (stage[j - 2] >>> 10);
+                stage[j] = (stage[j - 16] + s0 + stage[j - 7] + s1) & 0xffffffff;
+            }
+            const ch = (e & f) ^ (~e & g); const maj = (a & b) ^ (a & c) ^ (b & c);
+            const S0 = rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22); const S1 = rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25);
+            const t1 = (h + S1 + ch + K[j] + stage[j]) & 0xffffffff; const t2 = (S0 + maj) & 0xffffffff;
+            h = g; g = f; f = e; e = (d + t1) & 0xffffffff; d = c; c = b; b = a; a = (t1 + t2) & 0xffffffff;
+        }
+        H[0] = (H[0] + a) & 0xffffffff; H[1] = (H[1] + b) & 0xffffffff; H[2] = (H[2] + c) & 0xffffffff; H[3] = (H[3] + d) & 0xffffffff;
+        H[4] = (H[4] + e) & 0xffffffff; H[5] = (H[5] + f) & 0xffffffff; H[6] = (H[6] + g) & 0xffffffff; H[7] = (H[7] + h) & 0xffffffff;
+    }
+    return H.map(h => (h >>> 0).toString(16).padStart(8, '0')).join('');
+}
+
+// =========================================================================
+// 5. 윈도우 스코프 매핑 및 하드웨어 라이프사이클 초기화 시점 보호 가드
+// =========================================================================
 document.addEventListener("DOMContentLoaded", () => {
-    canvas = document.getElementById("gameCanvas"); if (canvas) ctx = canvas.getContext("2d"); fitCanvasSize();
+    // 캔버스 바인딩
+    canvas = document.getElementById("gameCanvas"); 
+    if (canvas) ctx = canvas.getContext("2d"); 
+    fitCanvasSize();
+
+    // 윈도우 글로벌 스코프 안전 바인딩 (인라인 HTML onclick 완벽 연동 보장)
+    window.showCustomAlert = showCustomAlert; window.closeCustomPopup = closeCustomPopup;
+    window.openTosModal = openTosModal; window.closeTosModal = closeTosModal;
+    window.toggleAuthMode = toggleAuthMode; window.handleAuth = handleAuth;
+    window.handleLogout = handleLogout; window.switchAdminTab = switchAdminTab;
+    window.openAdminPanel = openAdminPanel; window.closeAdminPanel = closeAdminPanel;
+    window.requestDeleteRank = requestDeleteRank; window.requestBanUser = requestBanUser;
+    window.openNoticeModal = openNoticeModal; window.closeNoticeModal = closeNoticeModal;
+    window.startGame = startGame; window.closeTutorialAndStart = closeTutorialAndStart;
+    window.exitGameMidway = exitGameMidway;
+
+    // 볼륨 조절 슬라이더 리스너 초기화
     const volSlider = document.getElementById("volume-slider");
     if (volSlider) {
         volSlider.value = gameVolume;
-        volSlider.addEventListener("input", (e) => { gameVolume = parseFloat(e.target.value); const audio = document.getElementById("game-audio"); if (audio) audio.volume = gameVolume; });
+        volSlider.addEventListener("input", (e) => { 
+            gameVolume = parseFloat(e.target.value); 
+            const audio = document.getElementById("game-audio"); 
+            if (audio) audio.volume = gameVolume; 
+        });
     }
-    auth.onAuthStateChanged((user) => { if (!isAdmin && !isAuthActionLock && user) { currentUser = user; showLobby(); } });
+
+    // 모바일 터치 패널 이벤트 매핑 초기화
+    document.querySelectorAll(".touch-zone").forEach(z => {
+        const currentLane = keyMap[z.getAttribute("data-key")];
+        z.addEventListener("touchstart", e => { e.preventDefault(); lanePressed[currentLane] = true; verifyHit(currentLane); });
+        z.addEventListener("touchend", e => { e.preventDefault(); lanePressed[currentLane] = false; });
+    });
+
+    // 🔒 DOM 구성 완료 직후 레이스컨디션 없이 파이어베이스 인증 감지기 가동
+    auth.onAuthStateChanged((user) => { 
+        if (!isAdmin && !isAuthActionLock) {
+            if (user) { currentUser = user; showLobby(); } 
+        } 
+    });
 });
