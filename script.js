@@ -65,47 +65,39 @@ let lanePressed = [false, false, false, false];
 let hitParticles = [];
 let noteSpeedMultiplier = 4.0;
 
+// [참고] 설정되어 있는 관리자 식별용 고유 마스터 해시 키값입니다.
 const ADMIN_ID_HASH = "5101000b55bf9a95db75cfd2a6c49f12064849ade2c6c6a6f7ed0164f7fea29f";
 const ADMIN_PW_HASH = "5c8b57a6b0097c4c1542efbcc7a14d50f9e6b6693943d5c24c3c3ededaff733a";
 
-// ==========================================
-// 🌌 Plum - Night Sky City 전 난이도 공식 채보 시트
-// ==========================================
+// Plum - Night Sky City 전 난이도 공식 채보 시트
 const charts = {
     easy: [
-        // 0s ~ 15s : 도입부 (잔잔한 정박)
         {time: 1.5, lane: 0}, {time: 3.0, lane: 2}, {time: 4.5, lane: 1}, {time: 6.0, lane: 3},
         {time: 7.5, lane: 2}, {time: 9.0, lane: 1}, {time: 10.5, lane: 0}, {time: 12.0, lane: 3},
         {time: 13.5, lane: 1}, {time: 15.0, lane: 2},
-        // 15s ~ 45s : 메인 벌스 (리듬 전개)
         {time: 16.5, lane: 0}, {time: 18.0, lane: 1}, {time: 19.5, lane: 2}, {time: 21.0, lane: 3},
         {time: 22.0, lane: 2}, {time: 23.5, lane: 1}, {time: 25.0, lane: 0}, {time: 26.5, lane: 3},
         {time: 28.0, lane: 1}, {time: 29.5, lane: 2}, {time: 31.0, lane: 0}, {time: 32.5, lane: 3},
         {time: 34.0, lane: 1}, {time: 35.5, lane: 2}, {time: 37.0, lane: 0}, {time: 38.5, lane: 1},
         {time: 40.0, lane: 2}, {time: 41.5, lane: 3}, {time: 43.0, lane: 1}, {time: 44.5, lane: 2},
-        // 45s ~ 55s : 빌드업 (속도 고조)
         {time: 45.5, lane: 0}, {time: 46.5, lane: 3}, {time: 47.5, lane: 1}, {time: 48.5, lane: 2},
         {time: 49.5, lane: 0}, {time: 50.5, lane: 1}, {time: 51.5, lane: 2}, {time: 52.5, lane: 3},
         {time: 53.5, lane: 0}, {time: 54.0, lane: 1}, {time: 54.5, lane: 2}, {time: 55.0, lane: 3},
-        // 55s ~ 85s : 하이라이트 클라이맥스 드롭 구간
         {time: 56.0, lane: 0}, {time: 57.0, lane: 2}, {time: 58.0, lane: 1}, {time: 59.0, lane: 3},
         {time: 60.0, lane: 2}, {time: 61.0, lane: 0}, {time: 62.0, lane: 3}, {time: 63.0, lane: 1},
         {time: 64.0, lane: 0}, {time: 65.0, lane: 2}, {time: 66.0, lane: 1}, {time: 67.0, lane: 3},
         {time: 68.0, lane: 2}, {time: 69.0, lane: 1}, {time: 70.0, lane: 0}, {time: 71.5, lane: 3},
         {time: 73.0, lane: 1}, {time: 74.5, lane: 2}, {time: 76.0, lane: 0}, {time: 77.5, lane: 3},
         {time: 79.0, lane: 1}, {time: 80.5, lane: 2}, {time: 82.0, lane: 0}, {time: 83.5, lane: 3},
-        // 85s ~ 100s : 아웃트로 (잔상 마무리)
         {time: 85.0, lane: 2}, {time: 87.0, lane: 1}, {time: 89.0, lane: 0}, {time: 91.0, lane: 3},
         {time: 93.0, lane: 1}, {time: 95.0, lane: 2}, {time: 97.0, lane: 0}, {time: 99.0, lane: 3}
     ],
     normal: [
-        // 도입부 리듬 분할
         {time: 1.0, lane: 0}, {time: 1.8, lane: 3}, {time: 2.6, lane: 1}, {time: 3.4, lane: 2},
         {time: 4.2, lane: 0}, {time: 5.0, lane: 3}, {time: 5.8, lane: 1}, {time: 6.6, lane: 2},
         {time: 7.4, lane: 0}, {time: 8.2, lane: 3}, {time: 9.0, lane: 1}, {time: 9.8, lane: 2},
         {time: 10.6, lane: 0}, {time: 11.4, lane: 3}, {time: 12.2, lane: 1}, {time: 13.0, lane: 2},
         {time: 13.8, lane: 0}, {time: 14.4, lane: 1}, {time: 15.0, lane: 2}, {time: 15.6, lane: 3},
-        // 메인 멜로디 전개 (동시치기 간헐적 배치)
         {time: 16.5, lane: 0}, {time: 16.5, lane: 3}, {time: 17.5, lane: 1}, {time: 18.3, lane: 2},
         {time: 19.1, lane: 0}, {time: 19.9, lane: 3}, {time: 20.7, lane: 1}, {time: 21.5, lane: 2},
         {time: 22.3, lane: 0}, {time: 22.3, lane: 2}, {time: 23.3, lane: 1}, {time: 24.1, lane: 3},
@@ -116,13 +108,11 @@ const charts = {
         {time: 36.5, lane: 0}, {time: 37.3, lane: 2}, {time: 38.1, lane: 1}, {time: 38.9, lane: 3},
         {time: 40.0, lane: 0}, {time: 40.8, lane: 1}, {time: 41.6, lane: 2}, {time: 42.4, lane: 3},
         {time: 43.2, lane: 0}, {time: 44.0, lane: 1}, {time: 44.8, lane: 2}, {time: 45.4, lane: 3},
-        // 빌드업 난이도 체감 상승
         {time: 46.0, lane: 0}, {time: 46.5, lane: 1}, {time: 47.0, lane: 2}, {time: 47.5, lane: 3},
         {time: 48.0, lane: 2}, {time: 48.5, lane: 1}, {time: 49.0, lane: 0}, {time: 49.5, lane: 3},
         {time: 50.2, lane: 1}, {time: 50.8, lane: 2}, {time: 51.4, lane: 0}, {time: 52.0, lane: 3},
         {time: 52.6, lane: 1}, {time: 53.2, lane: 2}, {time: 53.8, lane: 0}, {time: 54.4, lane: 3},
         {time: 54.8, lane: 1}, {time: 55.2, lane: 2}, {time: 55.6, lane: 0}, {time: 55.6, lane: 3},
-        // 하이라이트 격렬한 정박 비트 드롭
         {time: 56.2, lane: 0}, {time: 56.8, lane: 2}, {time: 57.4, lane: 1}, {time: 58.0, lane: 3},
         {time: 58.6, lane: 0}, {time: 58.6, lane: 2}, {time: 59.4, lane: 1}, {time: 60.0, lane: 3},
         {time: 60.6, lane: 0}, {time: 61.2, lane: 2}, {time: 61.8, lane: 1}, {time: 62.4, lane: 3},
@@ -135,7 +125,6 @@ const charts = {
         {time: 78.8, lane: 0}, {time: 78.8, lane: 2}, {time: 79.6, lane: 1}, {time: 80.4, lane: 3},
         {time: 81.2, lane: 0}, {time: 82.0, lane: 2}, {time: 82.8, lane: 1}, {time: 83.6, lane: 3},
         {time: 84.4, lane: 0}, {time: 84.4, lane: 3},
-        // 아웃트로 리듬 감쇄
         {time: 86.0, lane: 1}, {time: 87.0, lane: 2}, {time: 88.0, lane: 0}, {time: 89.0, lane: 3},
         {time: 90.5, lane: 1}, {time: 91.5, lane: 2}, {time: 92.5, lane: 0}, {time: 93.5, lane: 3},
         {time: 95.0, lane: 1}, {time: 96.5, lane: 2}, {time: 98.0, lane: 0}, {time: 99.5, lane: 3}
@@ -144,13 +133,11 @@ const charts = {
     master: []
 };
 
-// 채보 데이터 고밀도 생성 자동화 연산 루프 (HARD & MASTER 용 수동 스크립트 결합 연산)
+// 채보 데이터 고밀도 생성 자동화 연산 루프
 (function generateDenseCharts() {
-    // HARD 난이도 생성 (약 260노트)
     for (let t = 1.0; t < 100.0; t += 0.45) {
         let l = Math.floor((t * 7) % 4);
         charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: l });
-        // 클라이맥스 (55초 ~ 85초) 구간 동시타 주입
         if (t >= 55.0 && t <= 85.0 && Math.sin(t) > 0.1) {
             let l2 = (l + 2) % 4;
             charts.hard.push({ time: parseFloat((t + 0.05).toFixed(2)), lane: l2 });
@@ -158,18 +145,12 @@ const charts = {
     }
     charts.hard.sort((a, b) => a.time - b.time);
 
-    // MASTER 난이도 초고밀도 연타 생성 (약 460노트)
     for (let t = 0.5; t < 100.0; t += 0.22) {
         let l = Math.floor((t * 13) % 4);
         charts.master.push({ time: parseFloat(t.toFixed(2)), lane: l });
-        
-        // 메인 빌드업 및 후살 드롭 폭타 구간 구현
         if ((t >= 45.0 && t <= 55.0) || (t >= 56.0 && t <= 86.0)) {
-            // 16비트 트릴 유도 엇박 노트 강제 삽입
             let lTrill = (l + 1) % 4;
             charts.master.push({ time: parseFloat((t + 0.11).toFixed(2)), lane: lTrill });
-            
-            // 강한 강박 비트 동시치기 대량 주입
             if (Math.floor(t * 2) % 2 === 0) {
                 let lDouble = (l + 3) % 4;
                 charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lDouble });
@@ -211,7 +192,7 @@ document.getElementById("popup-cancel-btn").onclick = () => closeCustomPopup(fal
 function openTosModal() { document.getElementById("tos-modal").style.display = "flex"; }
 function closeTosModal() { document.getElementById("tos-modal").style.display = "none"; }
 
-// 범용 크로스 브라우징 가상 하이브리드 SHA-256 연산기
+// 크로스 브라우징 가상 하이브리드 SHA-256 연산기
 async function secureHash(string) {
     if (window.crypto && crypto.subtle && crypto.subtle.digest) {
         try {
@@ -221,6 +202,8 @@ async function secureHash(string) {
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         } catch (e) {}
     }
+    
+    // 비보안 환경(HTTP/IP접속) 대응 SHA-256 비트 연산 백업 엔진
     const rotateRight = (n, x) => (n >>> x) | (n << (32 - x));
     const K = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -262,7 +245,8 @@ async function secureHash(string) {
         H[0] = (H[0] + a) & 0xffffffff; H[1] = (H[1] + b) & 0xffffffff; H[2] = (H[2] + c) & 0xffffffff; H[3] = (H[3] + d) & 0xffffffff;
         H[4] = (H[4] + e) & 0xffffffff; H[5] = (H[5] + f) & 0xffffffff; H[6] = (H[6] + g) & 0xffffffff; H[7] = (H[7] + h) & 0xffffffff;
     }
-    return H.map(h => (h >>> 0).toString(16).padStart(2, '0')).join('');
+    // [버그 수정] 블록 결과 패딩 규격을 2에서 8로 수정하여 HTTP 환경 로그인 매칭 정상화 완료
+    return H.map(h => (h >>> 0).toString(16).padStart(8, '0')).join('');
 }
 
 function toggleAuthMode() {
@@ -286,6 +270,7 @@ async function handleAuth() {
     const inputIdHash = await secureHash(rawId);
     const inputPwHash = await secureHash(rawPw);
 
+    // 관리자 마스터 키 검증 구획
     if (inputIdHash === ADMIN_ID_HASH && inputPwHash === ADMIN_PW_HASH) {
         isAdmin = true;
         currentUser = { uid: "admin_asi", displayName: "아시" };
