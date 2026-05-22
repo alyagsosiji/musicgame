@@ -18,19 +18,25 @@
         <h1 class="glow-text">수평선 너머의 리듬게임</h1>
         <div class="auth-box">
             <h2 id="auth-title">우주 진입 (로그인)</h2>
-            <input type="text" id="auth-id" placeholder="아이디를 입력하세요">
-            <input type="password" id="auth-pw" placeholder="비밀번호를 입력하세요">
-            <button id="btn-primary" onclick="handleAuth()">확인</button>
-            <p id="auth-toggle" onclick="toggleAuthMode()">새로운 여행자이신가요? 회원가입하기</p>
-            <p id="tos-view-btn" onclick="openTosModal()">이용약관 보기</p>
+            <div class="input-group">
+                <input type="text" id="auth-id" placeholder="아이디를 입력하세요">
+                <input type="password" id="auth-pw" placeholder="비밀번호를 입력하세요">
+            </div>
+            <button id="btn-primary" class="menu-btn main-action" onclick="handleAuth()">진입하기</button>
+            <div class="auth-footer">
+                <p id="auth-toggle" onclick="toggleAuthMode()">새로운 여행자이신가요? 회원가입하기</p>
+                <p id="tos-view-btn" onclick="openTosModal()">이용약관 보기</p>
+            </div>
         </div>
     </div>
 
     <div id="lobby-screen" class="screen">
         <div class="lobby-header">
             <span id="user-welcome">환영합니다!</span>
-            <button id="btn-admin" class="hidden" onclick="openAdminPanel()">우주 관리실</button>
-            <button onclick="handleLogout()">로그아웃</button>
+            <div class="header-buttons">
+                <button id="btn-admin" class="admin-btn hidden" onclick="openAdminPanel()">우주 관리실</button>
+                <button class="logout-btn" onclick="handleLogout()">로그아웃</button>
+            </div>
         </div>
         
         <div class="song-card">
@@ -71,6 +77,10 @@
     </div>
 
     <div id="game-screen" class="screen">
+        <div class="game-header-bar">
+            <button class="exit-btn" onclick="exitGameMidway()">우주선 탈출 (Exit)</button>
+        </div>
+
         <div class="game-info">
             <div id="game-combo">0 COMBO</div>
             <div id="game-score">SCORE: 0</div>
@@ -144,6 +154,6 @@
 
     <audio id="game-audio" src="Night_Sky_City_2026_Plum.mp3" preload="auto"></audio>
 
-    <script src="script.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
