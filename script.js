@@ -3,7 +3,7 @@
 // =========================================================================
 const _skyHorizonConfig = {
     ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
-    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=", // 암호화 스트링 규격 오타 정밀 교정 완료!
+    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=", //atob 해독 에러를 유발하던 마침표 오타 완전 수정!
     pi: "cmVnYW1lMDQxNg==",
     sb: "cmVnYW1lMDQxNi5maXJlYmFzZXN0b3JhZ2UuYXBw",
     mi: "MjE5Mjc1NjM2MjU1",
@@ -25,7 +25,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 📢 코드 직접 수정형 공지사항 시트 데이터베이스 (유저 변경사항 100% 반영)
+// 📢 코드 직접 수정형 공지사항 시트 데이터베이스
 const horizonNotices = [
     {
         date: "2026-05-22",
@@ -97,7 +97,7 @@ let targetY = 476;
 let lanePressed = [false, false, false, false];
 let hitParticles = [];
 let noteSpeedMultiplier = 4.0;
-let maxChartTime = 100; // 🛠️ 채보 끊김 방지용 최대 런타임 추적 변수 추가
+let maxChartTime = 100; // 채보의 생명 주기를 통제하는 전역 한계 레일 변수
 
 const ADMIN_ID_HASH = "5101000b55bf9a95db75cfd2a6c49f12064849ade2c6c6a6f7ed0164f7fea29f";
 const ADMIN_PW_HASH = "5c8b57a6b0097c4c1542efbcc7a14d50f9e6b6693943d5c24c3c3ededaff733a";
@@ -355,7 +355,6 @@ function handleLogout() {
     document.getElementById("auth-screen").classList.add("active");
 }
 
-// 🛠️ 대기실 이동 및 리셋 시 모바일 패널 제어 인터페이스 상태 안정화 바인딩
 function showLobby(fallbackName = "") {
     const lobbyScreen = document.getElementById("lobby-screen");
     if (!lobbyScreen) return; 
@@ -438,11 +437,16 @@ function togglePauseGame() {
         isPaused = false; gameActive = true;
         if (pauseOverlay) pauseOverlay.style.display = "none";
         document.getElementById("game-judge").innerText = "";
-        if (audio) {
-            audio.play().then(() => { lastTimeSync += (performance.now() - pauseStartTime); gameLoop(); })
-            .catch(() => { lastTimeSync += (performance.now() - pauseStartTime); gameLoop(); });
+        
+        // 🛠️ 일시정지 해제 시 타이머 클록 기준점을 완전히 새로 고쳐 거대 시간 편차 누적 차단
+        let clearNow = performance.now();
+        lastTimeSync = clearNow;
+        window._horizonLastDeltaTime = clearNow;
+
+        if (audio && !audio.ended) {
+            audio.play().then(() => { gameLoop(); }).catch(() => { gameLoop(); });
         } else {
-            lastTimeSync += (performance.now() - pauseStartTime); gameLoop();
+            gameLoop();
         }
     }
 }
@@ -461,7 +465,7 @@ function startGame(diff) {
     
     chartData = JSON.parse(rmChartSafely(charts[selectedDifficulty] || []));
     
-    // 🛠️ [채보 끊김 방지 수정] 현재 난이도의 마지막 노트 연주 타임스탬프를 동적으로 연산하여 가드 배치
+    // 🛠️ 채보 전체의 완벽 완주를 위해 마지막 노트 타임스탬프 자동 검출 가드
     maxChartTime = chartData.length > 0 ? chartData[chartData.length - 1].time : 100;
     
     const audio = document.getElementById("game-audio"); if (audio) audio.volume = gameVolume;
@@ -486,11 +490,16 @@ function exitGameMidway() {
 function triggerAudioAndLoop() {
     if (animationId) cancelAnimationFrame(animationId);
     gameActive = true; isPaused = false;
+    let initNow = performance.now();
+    lastTimeSync = initNow;
+    window._horizonLastDeltaTime = initNow;
+    
     const audio = document.getElementById("game-audio");
-    if(audio) { audio.currentTime = 0; audio.volume = gameVolume;
-        audio.play().then(() => { lastAudioTime = audio.currentTime; lastTimeSync = performance.now(); currentAudioTime = audio.currentTime; gameLoop(); })
-        .catch(() => { lastTimeSync = performance.now(); gameLoop(); });
-    } else { lastTimeSync = performance.now(); gameLoop(); }
+    if(audio) { 
+        audio.currentTime = 0; audio.volume = gameVolume;
+        audio.play().then(() => { lastAudioTime = audio.currentTime; gameLoop(); })
+        .catch(() => { gameLoop(); });
+    } else { gameLoop(); }
 }
 
 function gameLoop() {
@@ -498,7 +507,7 @@ function gameLoop() {
     const audio = document.getElementById("game-audio");
     
     let now = performance.now();
-    if (audio && !audio.paused && gameActive && !isPaused) { 
+    if (audio && !audio.paused && !audio.ended && gameActive && !isPaused) { 
         if (audio.currentTime !== lastAudioTime) { 
             lastAudioTime = audio.currentTime; 
             lastTimeSync = now; 
@@ -507,10 +516,16 @@ function gameLoop() {
             let elapsed = (now - lastTimeSync) / 1000; 
             currentAudioTime = lastAudioTime + elapsed; 
         }
-    } else if (audio && audio.paused && gameActive && !isPaused) {
-        // 🛠️ [채보 완주 최적화 보정] 오디오가 조기에 끝났더라도 타임라인 연산을 중단하지 않고 정상 흐름 유지
-        let elapsed = (now - lastTimeSync) / 1000;
-        currentAudioTime = lastAudioTime + elapsed;
+        window._horizonLastDeltaTime = now;
+    } else if (gameActive && !isPaused) {
+        // 🛠️ [채보 끊김 방지 최적화 튜닝] 음악이 물리적으로 먼저 종료되어도(ended) 타임라인이 강제로 멈추지 않고 
+        // 하드웨어 고해상도 델타 클록으로 자동 전환되어 타임라인을 연속 누적 계산 및 유지합니다.
+        if (!window._horizonLastDeltaTime) window._horizonLastDeltaTime = now;
+        let delta = (now - window._horizonLastDeltaTime) / 1000;
+        if (delta > 0.1) delta = 0.1; 
+        currentAudioTime += delta;
+        window._horizonLastDeltaTime = now;
+        lastTimeSync = now;
     }
 
     let syncTime = currentAudioTime + audioOffset;
@@ -535,9 +550,10 @@ function gameLoop() {
         ctx.fillStyle = (pt.color || `rgba(0, 255, 255, `) + pt.alpha + ")"; ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
     }
 
-    // 🛠️ [채보 끊김 조기종료 버그 원천 해결 가드] 
-    // 오디오가 끝났더라도 채보 버퍼와 화면상에 활성화된 노트가 전부 연주되어 완벽하게 비었을 때 또는 곡 한계시간 연주 완료 시 게임 클리어 정산 수행
-    if ((audio && audio.ended && chartData.length === 0 && activeNotes.length === 0) || (chartData.length === 0 && activeNotes.length === 0 && syncTime > maxChartTime + 1.2)) { 
+    // 🛠️ [조기 종료 조건 완벽 개정 가드] 
+    // 음악 종료 여부와 상관없이, 전체 채보 데이터(chartData)와 화면 위의 활성 노트(activeNotes)가 완전히 소비되었고 
+    // 판정선 통과 유예를 위한 오프셋 타임까지 넘어선 시점에 안전하게 라이브 클리어를 선언합니다.
+    if (chartData.length === 0 && activeNotes.length === 0 && syncTime > maxChartTime + 1.5) { 
         finishGame(); 
         return; 
     }
@@ -701,6 +717,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const cancelBtn = document.getElementById("popup-cancel-btn");
     if (cancelBtn) cancelBtn.onclick = () => closeCustomPopup(false);
 
+    // 🛠️ [모바일 최적화 완결] 멀티 터치 지원 및 반응성 300ms 무지연 레이어 구축
     document.querySelectorAll(".touch-zone").forEach(z => {
         const currentLane = keyMap[z.getAttribute("data-key")];
         z.style.touchAction = "none";
