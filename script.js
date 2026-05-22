@@ -1,4 +1,4 @@
-// 1. 암호화(인코딩)된 Firebase 구성 정보 복구 완료
+// 1. 암호화(인코딩)된 Firebase 구성 정보
 const _skyHorizonConfig = {
     ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
     ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=",
@@ -22,6 +22,27 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+
+// 📢 [수정 가능 영역] 직접 작성하는 코드 기반 공지사항 시트 데이터베이스
+const horizonNotices = [
+    {
+        date: "2026-05-22",
+        title: "🚀 수평선(Horizon) 은하 서비스 정식 가동",
+        content: "여행자 여러분 환영합니다! Plum 작곡가님의 'Night Sky City' 공식 채보 시트를 기반으로 빌드된 하이엔드 리듬게임 아키텍처가 정식 가동되었습니다. 은하 필드에서의 멋진 연주를 기대합니다."
+    },
+    {
+        date: "2026-05-22",
+        title: "🛠️ 시스템 대규모 기능 확장 패치 완료 리포트",
+        content: "유저 편의 및 연출 강화를 위해 [볼륨 조절 슬라이더 슬롯], [인게임 일시정지 및 복구(P 키)], [오디오 장치 밀림 미세 제어 싱크 Offset(◀/▶ 키)], [판정 색상별 지향성 확산 충격파 링 이펙트] 4대 편의 기능의 하드웨어 최적화 융합이 완벽하게 완료되었습니다."
+    },
+    {
+        date: "2026-05-19",
+        title: "🔒 여행자 개인정보 안심 보안 수집 프로토콜",
+        content: "본 시스템은 가입 시 실제 이메일을 일절 요구하거나 수집하지 않으며 오직 닉네임 해싱 가상 세션 식별 키로만 매핑됩니다. 따라서 비밀번호 분실 시 복구가 원천적으로 불가하오니 분실에 각별히 주의하시기 바랍니다."
+    }
+    // 💡 여기에 추가하고 싶다면 아래 주석을 풀고 형식에 맞춰 추가하시면 됩니다:
+    // , { date: "2026-XX-XX", title: "제목", content: "내용" }
+];
 
 // 브라우저 내부 기능 제어 잠금
 window.addEventListener('contextmenu', e => e.preventDefault());
@@ -89,7 +110,7 @@ let noteSpeedMultiplier = 4.0;
 const ADMIN_ID_HASH = "5101000b55bf9a95db75cfd2a6c49f12064849ade2c6c6a6f7ed0164f7fea29f";
 const ADMIN_PW_HASH = "5c8b57a6b0097c4c1542efbcc7a14d50f9e6b6693943d5c24c3c3ededaff733a";
 
-// Plum - Night Sky City 공식 채보 시트 데이터
+// Plum - Night Sky City 공식 전 난이도 채보 시트 기반
 const charts = {
     easy: [
         {time: 1.5, lane: 0}, {time: 3.0, lane: 2}, {time: 4.5, lane: 1}, {time: 6.0, lane: 3},
@@ -267,6 +288,35 @@ function togglePauseGame() {
     }
 }
 
+// 📢 공지사항 모달 제어 및 실시간 빌드 엔진 함수 파트
+function openNoticeModal() {
+    const container = document.getElementById("notice-list-container");
+    if (container) {
+        container.innerHTML = ""; // 초기화
+        
+        // 코드 내부의 horizonNotices 배열 순회하며 다이나믹 돔 렌더링
+        horizonNotices.forEach(notice => {
+            container.innerHTML += `
+                <div style="background: rgba(138, 43, 226, 0.08); border: 1px solid rgba(0, 255, 255, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 12px; box-sizing: border-box;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="color: #ffffff; font-weight: bold; font-size: 0.95rem;">${notice.title}</span>
+                        <span style="color: #8a2be2; font-size: 0.78rem; font-family: monospace;">${notice.date}</span>
+                    </div>
+                    <p style="margin: 0; font-size: 0.85rem; color: #b0b0d8; line-height: 1.5; text-align: left; white-space: pre-wrap;">${notice.content}</p>
+                </div>
+            `;
+        });
+    }
+    
+    const noticeModal = document.getElementById("notice-modal");
+    if (noticeModal) noticeModal.style.display = "flex";
+}
+
+function closeNoticeModal() {
+    const noticeModal = document.getElementById("notice-modal");
+    if (noticeModal) noticeModal.style.display = "none";
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const volSlider = document.getElementById("volume-slider");
     if (volSlider) {
@@ -279,7 +329,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-// 로그인 / 회원가입 전환 뷰어 엔진
 function toggleAuthMode() {
     isSignUpMode = !isSignUpMode;
     document.getElementById("auth-title").innerText = isSignUpMode ? "새 여행자 가입 (회원가입)" : "우주 진입 (로그인)";
@@ -300,7 +349,6 @@ function toggleAuthMode() {
     }
 }
 
-// 계정 핸들러 및 가입 약관 검증 가드
 async function handleAuth() {
     const rawId = document.getElementById("auth-id").value.trim();
     const rawPw = document.getElementById("auth-pw").value.trim();
@@ -429,7 +477,6 @@ function startRealtimeRankings() {
         });
 }
 
-// [버그 수정 완료] 오타 구문을 정밀 조치하여 버튼 마비 원인 제거
 function switchAdminTab(type) {
     document.querySelectorAll(".admin-tab-content").forEach(c => c.classList.remove("active"));
     if(type === 'rank') document.getElementById("admin-rank-section").classList.add("active");
