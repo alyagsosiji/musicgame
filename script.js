@@ -23,7 +23,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 브라우저 내부 단축키 원천 통제
+// 브라우저 내부 기능 제어 잠금
 window.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('dragstart', e => e.preventDefault());
 window.addEventListener('selectstart', e => {
@@ -43,8 +43,6 @@ let isSignUpMode = false;
 let currentUser = null;
 let isAdmin = false;
 let currentPlatform = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? "Mobile" : "Desktop";
-
-// [추가 및 수정] 회원가입 세션 도중 파이어베이스 리스너가 흐름을 가로채지 못하도록 잠그는 플래그 신설
 let isAuthActionLock = false; 
 
 const canvas = document.getElementById("gameCanvas");
@@ -121,7 +119,7 @@ document.getElementById("popup-cancel-btn").onclick = () => closeCustomPopup(fal
 function openTosModal() { document.getElementById("tos-modal").style.display = "flex"; }
 function closeTosModal() { document.getElementById("tos-modal").style.display = "none"; }
 
-// [수정 및 업그레이드] 비보안 HTTP 서버 환경에서도 절대 깨지지 않는 하이브리드 무결성 고성능 SHA-256 연산기
+// 범용 크로스 브라우징 가상 하이브리드 SHA-256 연산기
 async function secureHash(string) {
     if (window.crypto && crypto.subtle && crypto.subtle.digest) {
         try {
@@ -129,10 +127,8 @@ async function secureHash(string) {
             const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        } catch (e) { /* 기본 연산 차단 시 하단 크로스 브라우징 가상 모듈로 무조건 우회 */ }
+        } catch (e) {}
     }
-    
-    // 비보안 환경(HTTP) 구동 전용 유니버설 비트 연산 SHA-256 시스템 복원 매핑
     const rotateRight = (n, x) => (n >>> x) | (n << (32 - x));
     const K = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -184,7 +180,6 @@ function toggleAuthMode() {
     document.getElementById("btn-primary").innerText = isSignUpMode ? "가입하기" : "진입하기";
 }
 
-// [수정 및 동기화 고도화] 레이스 컨디션을 전면 차단하여 무조건 가입 성공을 보장하는 트랜잭션 함수
 async function handleAuth() {
     const rawId = document.getElementById("auth-id").value.trim();
     const rawPw = document.getElementById("auth-pw").value.trim();
@@ -194,7 +189,6 @@ async function handleAuth() {
         return showCustomAlert("경고", "비밀번호는 최소 6자리 이상 설정해야 은하 진입이 가능합니다.");
     }
 
-    // 전역 비동기 세션 차단용 락 가동
     isAuthActionLock = true; 
 
     const inputIdHash = await secureHash(rawId);
@@ -214,8 +208,6 @@ async function handleAuth() {
     try {
         if (isSignUpMode) {
             const userCredential = await auth.createUserWithEmailAndPassword(secureEmail, rawPw);
-            
-            // 리스너가 화면을 가로채기 전에 프로필과 DB 주입 작업을 동기식으로 선언
             await userCredential.user.updateProfile({ displayName: rawId });
             await userCredential.user.reload(); 
             currentUser = auth.currentUser; 
@@ -225,7 +217,7 @@ async function handleAuth() {
                 joinedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
-            isAuthActionLock = false; // 완료 후 락 해제
+            isAuthActionLock = false; 
             showCustomAlert("성공", "수평선 너머 은하에 가입되었습니다.", false, () => {
                 showLobby(rawId);
             });
@@ -236,14 +228,14 @@ async function handleAuth() {
             showLobby(rawId);
         }
     } catch (error) {
-        isAuthActionLock = false; // 에러 시 안전하게 복구
+        isAuthActionLock = false; 
         showCustomAlert("오류", "계정 식별에 실패했습니다: " + error.message);
     }
 }
 
 auth.onAuthStateChanged((user) => {
     if (isAdmin) return; 
-    if (isAuthActionLock) return; // 락 상태일 때는 가로채지 않고 대기함
+    if (isAuthActionLock) return; 
     if (user) {
         currentUser = user;
         showLobby();
@@ -359,14 +351,11 @@ function startGame(diff) {
     document.getElementById("game-screen").classList.add("active");
     
     score = 0; combo = 0; maxCombo = 0;
-    perfectCount = 0;
-    greatCount = 0;
-    goodCount = 0;
-    missCount = 0;
+    perfectCount = 0; greatCount = 0; goodCount = 0; missCount = 0;
 
     hitParticles = [];
     lanePressed = [false, false, false, false];
-    chartData = JSON.parse(rmChartSafely(charts[selectedDifficulty]));
+    chartData = JSON.parse(rmChartSafely(charts[selectedDifficulty] || []));
 
     if (!localStorage.getItem("horizon_tutorial_seen")) {
         document.getElementById("tutorial-overlay").style.display = "flex";
@@ -436,7 +425,7 @@ function gameLoop() {
 
     ctx.strokeStyle = "rgba(138, 43, 226, 0.3)";
     lanes.forEach(x => {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); stroke();
     });
 
     ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 4;
@@ -472,7 +461,8 @@ function gameLoop() {
         ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
     }
 
-    if (audio.ended || (chartData.length === 0 && activeNotes.length === 0)) {
+    // [자연스러운 연출 보완] 노트가 모두 소진되더라도 음악City 음원이 완전히 끝날 때까지 대기 후 처리
+    if (audio.ended) {
         finishGame();
         return;
     }
