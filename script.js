@@ -46,11 +46,10 @@ let currentPlatform = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? "Mobile
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-let animationId;
+let animationId = null;
 let gameActive = false;
 let score = 0, combo = 0, maxCombo = 0;
 
-// [보완] 리듬게임 클리어 등급 세분화를 위한 상세 판정 카운터 변수 신설
 let perfectCount = 0;
 let greatCount = 0;
 let goodCount = 0;
@@ -271,13 +270,18 @@ function fitCanvasSize() {
 window.addEventListener('resize', fitCanvasSize);
 
 function startGame(diff) {
+    // [안정화 보완] 기존에 실행 중이던 애니메이션 프레임이 있다면 강제 격리 파기
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
+
     selectedDifficulty = diff;
     fitCanvasSize();
     
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
     document.getElementById("game-screen").classList.add("active");
     
-    // [보완] 새로운 인게임 시작 시 모든 세부 변수 카운터 초기화
     score = 0; combo = 0; maxCombo = 0;
     perfectCount = 0;
     greatCount = 0;
@@ -309,6 +313,10 @@ function closeTutorialAndStart() {
 }
 
 function triggerAudioAndLoop() {
+    // [안정화 보완] 혹시 모를 중복 루프 방지 처리 강화
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+    }
     gameActive = true;
     const audio = document.getElementById("game-audio");
     audio.currentTime = 0;
@@ -319,7 +327,10 @@ function triggerAudioAndLoop() {
 function exitGameMidway() {
     showCustomAlert("중도 하차", "진행 중인 모든 기록을 초기화하고 은하 대기실로 귀환하시겠습니까?", true, () => {
         gameActive = false;
-        cancelAnimationFrame(animationId);
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
         const audio = document.getElementById("game-audio");
         audio.pause();
         audio.currentTime = 0;
@@ -373,7 +384,7 @@ function gameLoop() {
 
         if (currentAudioTime > n.targetTime + 0.15) {
             activeNotes.splice(i, 1);
-            missCount++; // MISS 카운터 누적
+            missCount++; 
             updateJudgement("MISS");
         }
     }
@@ -436,16 +447,17 @@ function updateJudgement(res) {
     document.getElementById("game-score").innerText = `SCORE: ${score}`;
 }
 
-// [수정] 게임 종료 시 조작 조건 검사 및 최종 스코어/콤보 노출 구조 고도화
 async function finishGame() {
     gameActive = false;
-    cancelAnimationFrame(animationId);
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
     
     const audio = document.getElementById("game-audio");
     audio.pause();
     audio.currentTime = 0;
     
-    // [핵심 변경] 사용자의 개별 정밀 조작 이력을 추적하여 결과 창 타이틀 분기 연산
     let englishLiveTitle = "LIVE CLEAR";
     
     if (goodCount === 0 && missCount === 0) {
@@ -468,7 +480,6 @@ async function finishGame() {
         });
     }
 
-    // [핵심 변경] 커스텀 팝업 창에 영문 타이틀과 함께 최종 스코어 및 맥스 콤보수를 포맷팅하여 동시 송출
     showCustomAlert(
         englishLiveTitle, 
         `SCORE: ${score.toLocaleString()}   |   MAX COMBO: ${maxCombo}`, 
