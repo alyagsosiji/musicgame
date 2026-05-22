@@ -23,6 +23,11 @@
                 <input type="password" id="auth-pw" placeholder="비밀번호 (6자리 이상)" autocomplete="off">
             </div>
             <button id="btn-primary" class="menu-btn main-action" onclick="handleAuth()">진입하기</button>
+            <div id="tos-container" class="hidden" style="margin: 15px 0; text-align: left; font-size: 0.88rem; color: #b0b0d8; display: flex; align-items: center; gap: 8px; font-family: sans-serif;">
+    <input type="checkbox" id="tos-checkbox" style="cursor: pointer; width: 16px; height: 16px; accent-color: #8a2be2;">
+    <label for="tos-checkbox" style="cursor: pointer; user-select: none;">이용약관 및 개인정보 안내에 동의합니다.</label>
+    <span onclick="openTosModal()" style="color: #00ffff; text-decoration: underline; cursor: pointer; margin-left: auto; font-size: 0.82rem; font-weight: bold;">[약관보기]</span>
+</div>
             <div class="auth-footer">
                 <p id="auth-toggle" onclick="toggleAuthMode()">새로운 여행자이신가요? 회원가입하기</p>
                 <p id="tos-view-btn" onclick="openTosModal()">이용약관 보기</p>
