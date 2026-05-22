@@ -50,8 +50,10 @@ let chartData = [];
 let selectedDifficulty = "easy";
 let popupCallback = null;
 
-// 실시간 리스너 바인딩 해제용 변수
+// 실시간 통신 연결 제어용 구독 변수 파트
 let rankingUnsubscribe = null; 
+let adminRankUnsubscribe = null;
+let adminUserUnsubscribe = null;
 
 // 음악 동기화 타이머 변수
 let audioStartTime = 0; 
@@ -143,7 +145,7 @@ const charts = {
     master: []
 };
 
-// 채보 데이터 고밀도 생성 자동화 연산 루프
+// 채보 데이터 고밀도 자동 연산 생성기
 (function generateDenseCharts() {
     for (let t = 1.0; t < 100.0; t += 0.45) {
         let l = Math.floor((t * 7) % 4);
@@ -167,7 +169,7 @@ const charts = {
     charts.master.sort((a, b) => a.time - b.time);
 })();
 
-// 노구용 그라데이션 사전 제작 (렉 방지)
+// 그라데이션 캐싱 (끊김 현상 방지)
 function preCacheGradients() {
     cachedNoteGradients = lanes.map(x => {
         let g = ctx.createLinearGradient(x - 40, 0, x + 40, 0);
@@ -199,9 +201,9 @@ document.getElementById("popup-confirm-btn").onclick = () => closeCustomPopup(tr
 document.getElementById("popup-cancel-btn").onclick = () => closeCustomPopup(false);
 
 function openTosModal() { document.getElementById("tos-modal").style.display = "flex"; }
-function closeTosModal() { document.getElementById("tos-modal").style.none; }
+function closeTosModal() { document.getElementById("tos-modal").style.display = "none"; }
 
-// SHA-256 암호화 인코더
+// SHA-256 암호화
 async function secureHash(string) {
     if (window.crypto && crypto.subtle && crypto.subtle.digest) {
         try {
@@ -306,6 +308,12 @@ async function handleAuth() {
         } else {
             const userCredential = await auth.signInWithEmailAndPassword(secureEmail, rawPw);
             currentUser = userCredential.user;
+            
+            await db.collection("horizon_users").doc(currentUser.uid).set({
+                username: currentUser.displayName || rawId,
+                lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+
             isAuthActionLock = false; 
             showLobby(rawId);
         }
@@ -325,10 +333,10 @@ auth.onAuthStateChanged((user) => {
 });
 
 function handleLogout() {
-    if (rankingUnsubscribe) {
-        rankingUnsubscribe();
-        rankingUnsubscribe = null;
-    }
+    if (rankingUnsubscribe) { rankingUnsubscribe(); rankingUnsubscribe = null; }
+    if (adminRankUnsubscribe) { adminRankUnsubscribe(); adminRankUnsubscribe = null; }
+    if (adminUserUnsubscribe) { adminUserUnsubscribe(); adminUserUnsubscribe = null; }
+    
     auth.signOut();
     isAdmin = false;
     currentUser = null;
@@ -344,13 +352,11 @@ function showLobby(fallbackName = "") {
     const finalRenderName = currentUser ? (currentUser.displayName || fallbackName || "여행자") : (fallbackName || "여행자");
     document.getElementById("user-welcome").innerText = `반갑습니다, ${finalRenderName} 여행자님!`;
     
-    // 로비 진입 시 실시간 랭킹 시스템 가동
     startRealtimeRankings();
 }
 
-// [리팩토링] 다른 유저들의 클리어 점수가 새로고침 없이 즉각 동기화되는 실시간 리스너 함수
 function startRealtimeRankings() {
-    if (rankingUnsubscribe) rankingUnsubscribe(); // 중복 리스너 방지 방어선
+    if (rankingUnsubscribe) rankingUnsubscribe();
 
     const tbody = document.getElementById("ranking-tbody");
     
@@ -373,7 +379,7 @@ function startRealtimeRankings() {
                 </tr>`;
             });
         }, (error) => {
-            console.error("실시간 랭킹 로드 실패: ", error);
+            console.error(error);
         });
 }
 
@@ -388,43 +394,76 @@ async function openAdminPanel() {
     document.getElementById("admin-modal").style.display = "flex";
     
     const rankTbody = document.getElementById("admin-ranking-tbody");
-    rankTbody.innerHTML = "";
     const userTbody = document.getElementById("admin-user-tbody");
-    userTbody.innerHTML = "";
 
-    try {
-        const rankSnap = await db.collection("horizon_rankings").limit(30).get();
-        rankSnap.forEach(doc => {
-            const d = doc.data();
-            rankTbody.innerHTML += `<tr><td>${d.username}</td><td>${d.score}</td><td>${d.difficulty}</td>
-            <td><button onclick="requestDeleteRank('${doc.id}')" style="background:#cc0000; padding:4px;">삭제</button></td></tr>`;
-        });
+    if (adminRankUnsubscribe) adminRankUnsubscribe();
+    if (adminUserUnsubscribe) adminUserUnsubscribe();
 
-        const userSnap = await db.collection("horizon_users").limit(30).get();
-        userSnap.forEach(doc => {
-            const u = doc.data();
-            userTbody.innerHTML += `<tr><td>${u.username}</td><td>활동 중</td>
-            <td><button onclick="requestBanUser('${doc.id}')" style="background:#cc0000; padding:4px;">추방</button></td></tr>`;
-        });
-    } catch(e) {
-        showCustomAlert("권한 오류", "데이터베이스 접근 실패. Firestore [Rules] 개방 여부 및 개설 여부를 확인해 주세요.");
-    }
+    adminRankUnsubscribe = db.collection("horizon_rankings").orderBy("timestamp", "desc").limit(30)
+        .onSnapshot(snapshot => {
+            rankTbody.innerHTML = "";
+            snapshot.forEach(doc => {
+                const d = doc.data();
+                rankTbody.innerHTML += `<tr><td>${d.username}</td><td>${d.score}</td><td>${d.difficulty}</td>
+                <td><button onclick="requestDeleteRank('${doc.id}')" style="background:#cc0000; padding:4px;">삭제</button></td></tr>`;
+            });
+        }, e => console.error(e));
+
+    adminUserUnsubscribe = db.collection("horizon_users").limit(30)
+        .onSnapshot(snapshot => {
+            userTbody.innerHTML = "";
+            snapshot.forEach(doc => {
+                const u = doc.data();
+                userTbody.innerHTML += `<tr><td>${u.username || '여행자'}</td><td>활동 중</td>
+                <td><button onclick="requestBanUser('${doc.id}')" style="background:#cc0000; padding:4px;">추방</button></td></tr>`;
+            });
+        }, e => console.error(e));
 }
 
-function closeAdminPanel() { document.getElementById("admin-modal").style.display = "none"; }
+function closeAdminPanel() { 
+    document.getElementById("admin-modal").style.display = "none"; 
+    if (adminRankUnsubscribe) { adminRankUnsubscribe(); adminRankUnsubscribe = null; }
+    if (adminUserUnsubscribe) { adminUserUnsubscribe(); adminUserUnsubscribe = null; }
+}
 
 function requestDeleteRank(id) {
     showCustomAlert("확인", "해당 기록을 기록실에서 파기하시겠습니까?", true, async () => {
         await db.collection("horizon_rankings").doc(id).delete();
-        openAdminPanel();
     });
 }
 
+// [기능 대폭 보완] 유저 추방 시 해당 유저가 세운 모든 점수/랭킹 데이터까지 원천 탐색하여 전량 영구 삭제
 function requestBanUser(id) {
-    showCustomAlert("확인", "해당 유저의 우주선 자격을 영구 박탈하시겠습니까?", true, async () => {
-        await db.collection("horizon_users").doc(id).delete();
-        openAdminPanel();
-    });
+    showCustomAlert(
+        "여행자 자격 영구 박탈", 
+        "해당 유저를 추방하고, 이 유저가 등록한 모든 글로벌 랭킹 기록을 서버에서 영구 파기하시겠습니까?", 
+        true, 
+        async () => {
+            try {
+                // 1. 추방 대상 유저의 도큐먼트에서 정확한 닉네임(username) 획득
+                const userDoc = await db.collection("horizon_users").doc(id).get();
+                if (userDoc.exists) {
+                    const targetUsername = userDoc.data().username;
+                    
+                    // 2. horizon_rankings 컬렉션에서 해당 닉네임으로 등록된 모든 점수 기록 색출
+                    const rankingSnap = await db.collection("horizon_rankings").where("username", "==", targetUsername).get();
+                    
+                    // 3. 일괄 삭제용 파이어베이스 트랜잭션 배치 가동
+                    const batch = db.batch();
+                    rankingSnap.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+                    await batch.commit(); // 해당 유저 기록 전량 삭제 반영
+                }
+                
+                // 4. 최종적으로 horizon_users 유저 명단에서 도큐먼트 말소
+                await db.collection("horizon_users").doc(id).delete();
+            } catch(e) {
+                console.error("추방 및 연쇄 기록 말소 실패: ", e);
+                showCustomAlert("연동 에러", "데이터 파기 중 통신 장애가 발생했습니다.");
+            }
+        }
+    );
 }
 
 function fitCanvasSize() {
@@ -638,7 +677,6 @@ async function finishGame() {
         else englishLiveTitle = "FULL COMBO";
     }
 
-    // [제한 복구 완료] 관리자 계정이 아닐 때에만 글로벌 랭킹 데이터베이스에 기록을 누적합니다.
     if (currentUser && currentUser.uid !== "admin_asi" && !isAdmin) {
         try {
             await db.collection("horizon_rankings").add({
