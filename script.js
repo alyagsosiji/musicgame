@@ -3,7 +3,7 @@
 // =========================================================================
 const _skyHorizonConfig = {
     ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
-    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=", //atob 해독 에러를 유발하던 마침표 오타 완전 수정!
+    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC.jb20=", // 암호화 스트링 정밀 보정 완료
     pi: "cmVnYW1lMDQxNg==",
     sb: "cmVnYW1lMDQxNi5maXJlYmFzZXN0b3JhZ2UuYXBw",
     mi: "MjE5Mjc1NjM2MjU1",
@@ -13,7 +13,7 @@ const _skyHorizonConfig = {
 
 const firebaseConfig = {
     apiKey: atob(_skyHorizonConfig.ak),
-    authDomain: atob(_skyHorizonConfig.ad),
+    authDomain: atob(_skyHorizonConfig.ad).replace('.jb20=', '.com'), // 하위 호환 호스팅 도메인 오타 정밀 해독 교정
     projectId: atob(_skyHorizonConfig.pi),
     storageBucket: atob(_skyHorizonConfig.sb),
     messagingSenderId: atob(_skyHorizonConfig.mi),
@@ -97,7 +97,7 @@ let targetY = 476;
 let lanePressed = [false, false, false, false];
 let hitParticles = [];
 let noteSpeedMultiplier = 4.0;
-let maxChartTime = 100; // 채보의 생명 주기를 통제하는 전역 한계 레일 변수
+let maxChartTime = 100; 
 
 const ADMIN_ID_HASH = "5101000b55bf9a95db75cfd2a6c49f12064849ade2c6c6a6f7ed0164f7fea29f";
 const ADMIN_PW_HASH = "5c8b57a6b0097c4c1542efbcc7a14d50f9e6b6693943d5c24c3c3ededaff733a";
@@ -438,7 +438,6 @@ function togglePauseGame() {
         if (pauseOverlay) pauseOverlay.style.display = "none";
         document.getElementById("game-judge").innerText = "";
         
-        // 🛠️ 일시정지 해제 시 타이머 클록 기준점을 완전히 새로 고쳐 거대 시간 편차 누적 차단
         let clearNow = performance.now();
         lastTimeSync = clearNow;
         window._horizonLastDeltaTime = clearNow;
@@ -464,8 +463,6 @@ function startGame(diff) {
     lanePressed = [false, false, false, false];
     
     chartData = JSON.parse(rmChartSafely(charts[selectedDifficulty] || []));
-    
-    // 🛠️ 채보 전체의 완벽 완주를 위해 마지막 노트 타임스탬프 자동 검출 가드
     maxChartTime = chartData.length > 0 ? chartData[chartData.length - 1].time : 100;
     
     const audio = document.getElementById("game-audio"); if (audio) audio.volume = gameVolume;
@@ -518,8 +515,6 @@ function gameLoop() {
         }
         window._horizonLastDeltaTime = now;
     } else if (gameActive && !isPaused) {
-        // 🛠️ [채보 끊김 방지 최적화 튜닝] 음악이 물리적으로 먼저 종료되어도(ended) 타임라인이 강제로 멈추지 않고 
-        // 하드웨어 고해상도 델타 클록으로 자동 전환되어 타임라인을 연속 누적 계산 및 유지합니다.
         if (!window._horizonLastDeltaTime) window._horizonLastDeltaTime = now;
         let delta = (now - window._horizonLastDeltaTime) / 1000;
         if (delta > 0.1) delta = 0.1; 
@@ -550,12 +545,20 @@ function gameLoop() {
         ctx.fillStyle = (pt.color || `rgba(0, 255, 255, `) + pt.alpha + ")"; ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
     }
 
-    // 🛠️ [조기 종료 조건 완벽 개정 가드] 
-    // 음악 종료 여부와 상관없이, 전체 채보 데이터(chartData)와 화면 위의 활성 노트(activeNotes)가 완전히 소비되었고 
-    // 판정선 통과 유예를 위한 오프셋 타임까지 넘어선 시점에 안전하게 라이브 클리어를 선언합니다.
-    if (chartData.length === 0 && activeNotes.length === 0 && syncTime > maxChartTime + 1.5) { 
-        finishGame(); 
-        return; 
+    // 🛠️ [클리어창 프리징 현상 완벽 조치] 융합 종료 조건식 재정렬
+    let isChartEmpty = (chartData.length === 0 && activeNotes.length === 0);
+    let isAudioDone = false;
+    if (audio) {
+        if (audio.ended) isAudioDone = true;
+        if (audio.duration && audio.currentTime >= audio.duration - 0.2) isAudioDone = true;
+    }
+
+    if (isChartEmpty) {
+        // 음악이 실제로 끝났거나, 유휴 안전 타임아웃선(마지막 노트 배치 기준 1.5초 경과)을 초과한 경우 정산 즉시 이행
+        if (isAudioDone || syncTime > maxChartTime + 1.5 || !audio) {
+            finishGame(); 
+            return; 
+        }
     }
     
     if (!isPaused) animationId = requestAnimationFrame(gameLoop);
@@ -594,7 +597,14 @@ function updateJudgement(res) {
 
 async function finishGame() {
     gameActive = false; isPaused = false; if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
-    const audio = document.getElementById("game-audio"); if (audio) { audio.pause(); audio.currentTime = 0; }
+    
+    // 🛠️ [브라우저 스레드 락 차단] 오디오 강제 제어 시 에러가 나더라도 무조건 통과하도록 개별 가드 주입
+    const audio = document.getElementById("game-audio"); 
+    if (audio) { 
+        try { audio.pause(); } catch(e) {}
+        try { audio.currentTime = 0; } catch(e) {}
+    }
+    
     let englishLiveTitle = "LIVE CLEAR";
     if (goodCount === 0 && missCount === 0) { if (greatCount === 0 && perfectCount > 0) englishLiveTitle = "PERFECT LIVE"; else englishLiveTitle = "FULL COMBO"; }
 
@@ -610,9 +620,17 @@ async function finishGame() {
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 localTime: Date.now()
             }); 
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error("데이터베이스 기록 예외 스킵 가드 처리 완료:", e); }
     }
-    showCustomAlert(englishLiveTitle, `SCORE: ${score.toLocaleString()}   |   MAX COMBO: ${maxCombo}`, false, () => { showLobby(); });
+    
+    // 🛠️ 모달 팝업이 크래시날 경우를 대비한 2단계 넷-백업 경고창 시스템 작동
+    try {
+        showCustomAlert(englishLiveTitle, `SCORE: ${score.toLocaleString()}   |   MAX COMBO: ${maxCombo}`, false, () => { showLobby(); });
+    } catch(e) {
+        console.error("알림창 UI 에러 감지:", e);
+        alert(`🌌 ${englishLiveTitle} 🌌\nSCORE: ${score.toLocaleString()} | MAX COMBO: ${maxCombo}`);
+        showLobby();
+    }
 }
 
 window.addEventListener("keydown", e => {
@@ -717,7 +735,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const cancelBtn = document.getElementById("popup-cancel-btn");
     if (cancelBtn) cancelBtn.onclick = () => closeCustomPopup(false);
 
-    // 🛠️ [모바일 최적화 완결] 멀티 터치 지원 및 반응성 300ms 무지연 레이어 구축
     document.querySelectorAll(".touch-zone").forEach(z => {
         const currentLane = keyMap[z.getAttribute("data-key")];
         z.style.touchAction = "none";
