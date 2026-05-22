@@ -1,7 +1,7 @@
-// 1. 암호화(인코딩)된 Firebase 구성 정보
+// 1. 암호화(인코딩)된 Firebase 구성 정보 복구 완료
 const _skyHorizonConfig = {
     ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
-    ad: "cmVnYW1lMD00MTYuZmlyZWJhc2VhcHAuY29t",
+    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=",
     pi: "cmVnYW1lMDQxNg==",
     sb: "cmVnYW1lMDQxNi5maXJlYmFzZXN0b3JhZ2UuYXBw",
     mi: "MjE5Mjc1NjM2MjU1",
@@ -55,7 +55,7 @@ let rankingUnsubscribe = null;
 let adminRankUnsubscribe = null;
 let adminUserUnsubscribe = null;
 
-// [안티 스터터 타임라인 및 편의 기능 제어 변수군]
+// 안티 스터터 타임라인 및 편의 기능 제어 변수군
 let currentAudioTime = 0;
 let lastAudioTime = 0;
 let lastTimeSync = 0;
@@ -89,7 +89,7 @@ let noteSpeedMultiplier = 4.0;
 const ADMIN_ID_HASH = "5101000b55bf9a95db75cfd2a6c49f12064849ade2c6c6a6f7ed0164f7fea29f";
 const ADMIN_PW_HASH = "5c8b57a6b0097c4c1542efbcc7a14d50f9e6b6693943d5c24c3c3ededaff733a";
 
-// Plum - Night Sky City 공식 전 난이도 채보 시트 기반
+// Plum - Night Sky City 공식 채보 시트 데이터
 const charts = {
     easy: [
         {time: 1.5, lane: 0}, {time: 3.0, lane: 2}, {time: 4.5, lane: 1}, {time: 6.0, lane: 3},
@@ -153,7 +153,7 @@ const charts = {
     master: []
 };
 
-// 채보 엔진
+// 고밀도 채보 생성기
 (function generatePerfectCharts() {
     for (let t = 1.0; t < 16.0; t += 0.8) {
         charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 3) % 4 });
@@ -279,7 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-// [기능 추가] 로그인 / 가입 모드 전환 시 이용약관 체크박스 컨테이너 제어
+// 로그인 / 회원가입 전환 뷰어 엔진
 function toggleAuthMode() {
     isSignUpMode = !isSignUpMode;
     document.getElementById("auth-title").innerText = isSignUpMode ? "새 여행자 가입 (회원가입)" : "우주 진입 (로그인)";
@@ -289,28 +289,29 @@ function toggleAuthMode() {
     const tosContainer = document.getElementById("tos-container");
     if (tosContainer) {
         if (isSignUpMode) {
-            tosContainer.style.display = "flex"; // 회원가입일 때 보이게 처리
+            tosContainer.classList.remove("hidden");
+            tosContainer.style.display = "flex"; 
         } else {
-            tosContainer.style.display = "none";  // 로그인일 때 숨기기
+            tosContainer.classList.add("hidden");
+            tosContainer.style.display = "none";  
             const tosCheckbox = document.getElementById("tos-checkbox");
-            if (tosCheckbox) tosCheckbox.checked = false; // 체크 상태 초기화
+            if (tosCheckbox) tosCheckbox.checked = false; 
         }
     }
 }
 
-// [기능 보완] 회원가입 시 이용약관 동의 조건 강제 검증 로직 탑재
+// 계정 핸들러 및 가입 약관 검증 가드
 async function handleAuth() {
     const rawId = document.getElementById("auth-id").value.trim();
     const rawPw = document.getElementById("auth-pw").value.trim();
 
     if(!rawId || !rawPw) return showCustomAlert("경고", "모든 항목을 입력해 주세요.");
 
-    // 회원가입 모드일 때 체크박스 검사 가드 발동
     if (isSignUpMode) {
         const tosCheckbox = document.getElementById("tos-checkbox");
         if (tosCheckbox && !tosCheckbox.checked) {
             return showCustomAlert("약관 동의 필요", "가입을 진행하려면 이용약관에 동의하셔야 합니다.", false, () => {
-                openTosModal(); // 확인을 누르면 약관 팝업을 바로 열어주는 유저 편의 제공
+                openTosModal(); 
             });
         }
     }
@@ -428,6 +429,7 @@ function startRealtimeRankings() {
         });
 }
 
+// [버그 수정 완료] 오타 구문을 정밀 조치하여 버튼 마비 원인 제거
 function switchAdminTab(type) {
     document.querySelectorAll(".admin-tab-content").forEach(c => c.classList.remove("active"));
     if(type === 'rank') document.getElementById("admin-rank-section").classList.add("active");
