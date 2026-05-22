@@ -55,11 +55,17 @@ let rankingUnsubscribe = null;
 let adminRankUnsubscribe = null;
 let adminUserUnsubscribe = null;
 
-// [안티 스터터 타임라인 용 변수 선언]
+// [안티 스터터 타임라인 및 편의 기능 제어 변수군]
 let currentAudioTime = 0;
 let lastAudioTime = 0;
 let lastTimeSync = 0;
 let cachedNoteGradients = []; 
+
+let gameVolume = 0.8;          // 🔊 볼륨 설정 전역 변수
+let audioOffset = 0.000;       // 🛠️ 판정 싱크 오프셋 (초 단위)
+let isPaused = false;          // ⏸️ 일시정지 상태 변수
+let pauseStartTime = 0;        // 일시정지 시점 기록 변수
+let hitRings = [];             // ✨ 확장형 충격파 이펙트 배열
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -147,9 +153,8 @@ const charts = {
     master: []
 };
 
-// 정밀 타임스탬프 기반 맞춤형 하이엔드 채보 생성 엔진
+// 소수점 오차 없는 정밀 타임스탬프 섹션별 고밀도 채보 생성기
 (function generatePerfectCharts() {
-    // --- 1. HARD 난이도 제작 (약 320노트) ---
     for (let t = 1.0; t < 16.0; t += 0.8) {
         charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 3) % 4 });
     }
@@ -174,7 +179,6 @@ const charts = {
         charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 5) % 4 });
     }
 
-    // --- 2. MASTER 난이도 제작 (약 540노트 밀도) ---
     for (let t = 1.0; t < 16.0; t += 0.4) {
         charts.master.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 5) % 4 });
     }
@@ -220,11 +224,69 @@ function adjustNoteSpeed(amount) {
     if (nextSpeed >= 1.0 && nextSpeed <= 9.5) {
         noteSpeedMultiplier = nextSpeed;
         const speedDisplay = document.getElementById("speed-display-value");
-        if (speedDisplay) {
-            speedDisplay.innerText = noteSpeedMultiplier.toFixed(1);
+        if (speedDisplay) speedDisplay.innerText = noteSpeedMultiplier.toFixed(1);
+    }
+}
+
+// 🛠️ 판정선 오디오 싱크 옵셋 조절 함수
+function adjustAudioOffset(amount) {
+    audioOffset = parseFloat((audioOffset + amount).toFixed(3));
+    const offsetDisplay = document.getElementById("offset-display-value");
+    if (offsetDisplay) {
+        offsetDisplay.innerText = (audioOffset > 0 ? "+" : "") + audioOffset.toFixed(3) + "s";
+    }
+}
+
+// ⏸️ 인게임 일시정지 및 재개 시스템 엔진
+function togglePauseGame() {
+    if (!gameActive && !isPaused) return; 
+    const audio = document.getElementById("game-audio");
+    const pauseOverlay = document.getElementById("pause-overlay");
+
+    if (!isPaused) {
+        isPaused = true;
+        gameActive = false; 
+        if (audio) audio.pause();
+        pauseStartTime = performance.now();
+        cancelAnimationFrame(animationId);
+        if (pauseOverlay) pauseOverlay.style.display = "flex";
+        document.getElementById("game-judge").innerText = "PAUSED";
+    } else {
+        isPaused = false;
+        gameActive = true;
+        if (pauseOverlay) pauseOverlay.style.display = "none";
+        document.getElementById("game-judge").innerText = "";
+
+        if (audio) {
+            audio.play().then(() => {
+                let pausedDuration = performance.now() - pauseStartTime;
+                lastTimeSync += pausedDuration; 
+                gameLoop();
+            }).catch(e => {
+                let pausedDuration = performance.now() - pauseStartTime;
+                lastTimeSync += pausedDuration;
+                gameLoop();
+            });
+        } else {
+            let pausedDuration = performance.now() - pauseStartTime;
+            lastTimeSync += pausedDuration;
+            gameLoop();
         }
     }
 }
+
+// 초기 로딩 시 볼륨 컨트롤러 요소 감지 연동 리스너 추가
+document.addEventListener("DOMContentLoaded", () => {
+    const volSlider = document.getElementById("volume-slider");
+    if (volSlider) {
+        volSlider.value = gameVolume;
+        volSlider.addEventListener("input", (e) => {
+            gameVolume = parseFloat(e.target.value);
+            const audio = document.getElementById("game-audio");
+            if (audio) audio.volume = gameVolume;
+        });
+    }
+});
 
 function showCustomAlert(title, message, isConfirm = false, callback = null) {
     document.getElementById("popup-title").innerText = title;
@@ -431,7 +493,7 @@ function startRealtimeRankings() {
 }
 
 function switchAdminTab(type) {
-    document.querySelectorAll(".admin-tab-content").forEach(c => c.classList.remove("active"));
+    document.querySelectorAll(".admin-tab-content").forEach(c => classList.remove("active"));
     if(type === 'rank') document.getElementById("admin-rank-section").classList.add("active");
     if(type === 'user') document.getElementById("admin-user-section").classList.add("active");
 }
@@ -529,9 +591,15 @@ function startGame(diff) {
     perfectCount = 0; greatCount = 0; goodCount = 0; missCount = 0;
 
     hitParticles = [];
+    hitRings = []; 
     activeNotes = []; 
+    isPaused = false; 
     lanePressed = [false, false, false, false];
     chartData = JSON.parse(rmChartSafely(charts[selectedDifficulty] || []));
+
+    // 게임 세션 시작 시 볼륨 상태 동기화 주입
+    const audio = document.getElementById("game-audio");
+    if (audio) audio.volume = gameVolume;
 
     if (!localStorage.getItem("horizon_tutorial_seen")) {
         document.getElementById("tutorial-overlay").style.display = "flex";
@@ -558,11 +626,12 @@ function closeTutorialAndStart() {
 function triggerAudioAndLoop() {
     if (animationId) cancelAnimationFrame(animationId);
     gameActive = true;
+    isPaused = false;
     const audio = document.getElementById("game-audio");
     audio.currentTime = 0;
+    audio.volume = gameVolume;
     
     audio.play().then(() => {
-        // 동기화 기준 타임라인 리셋
         lastAudioTime = audio.currentTime;
         lastTimeSync = performance.now();
         currentAudioTime = audio.currentTime;
@@ -579,6 +648,7 @@ function triggerAudioAndLoop() {
 function exitGameMidway() {
     showCustomAlert("중도 하차", "진행 중인 모든 기록을 초기화하고 은하 대기실로 귀환하시겠습니까?", true, () => {
         gameActive = false;
+        isPaused = false;
         if (animationId) {
             cancelAnimationFrame(animationId);
             animationId = null;
@@ -587,33 +657,40 @@ function exitGameMidway() {
         activeNotes = []; 
         
         const audio = document.getElementById("game-audio");
-        audio.pause();
-        audio.currentTime = 0;
+        if (audio) {
+            audio.pause();
+            audio.currentTime = 0;
+        }
+        const pauseOverlay = document.getElementById("pause-overlay");
+        if (pauseOverlay) pauseOverlay.style.display = "none";
+        
         showLobby();
     });
 }
 
 function gameLoop() {
-    if (!gameActive) return;
+    if (!gameActive && !isPaused) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     const audio = document.getElementById("game-audio");
     
     // [초정밀 안티 스터터 동기화 인터폴레이션]
-    // 오디오 장치의 갱신 프레임 주기가 밀려도 러버밴딩 트랩에 갇히지 않고 부드럽게 시간축 전진 제어
     if (audio.currentTime !== lastAudioTime) {
         lastAudioTime = audio.currentTime;
         lastTimeSync = performance.now();
         currentAudioTime = lastAudioTime;
     } else {
-        if (!audio.paused && gameActive) {
+        if (!audio.paused && gameActive && !isPaused) {
             let elapsed = (performance.now() - lastTimeSync) / 1000;
-            if (elapsed > 0.15) elapsed = 0.15; // 시스템 프레임 드롭 과부하 시 상한선 방어
+            if (elapsed > 0.15) elapsed = 0.15; 
             currentAudioTime = lastAudioTime + elapsed;
         } else {
             currentAudioTime = audio.currentTime;
         }
     }
+
+    // 🛠️ 판정선 조절 오프셋 싱크 데이터 주입 연산 파트
+    let syncTime = currentAudioTime + audioOffset;
 
     const currentSpeedFactor = noteSpeedMultiplier * 110; 
     const lookAheadTime = targetY / currentSpeedFactor;
@@ -637,30 +714,49 @@ function gameLoop() {
     ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(0, targetY); ctx.lineTo(canvas.width, targetY); ctx.stroke();
 
-    while (chartData.length > 0 && chartData[0].time <= currentAudioTime + lookAheadTime) {
+    while (chartData.length > 0 && chartData[0].time <= syncTime + lookAheadTime) {
         const next = chartData.shift();
         activeNotes.push({ targetTime: next.time, lane: next.lane, x: lanes[next.lane] });
     }
 
     for (let i = activeNotes.length - 1; i >= 0; i--) {
         let n = activeNotes[i];
-        n.y = targetY - (n.targetTime - currentAudioTime) * currentSpeedFactor;
+        n.y = targetY - (n.targetTime - syncTime) * currentSpeedFactor;
 
         ctx.fillStyle = cachedNoteGradients[n.lane] || "#ff00ff";
         ctx.fillRect(n.x - 44, n.y - 9, 88, 18);
 
-        if (currentAudioTime > n.targetTime + 0.15) {
+        if (syncTime > n.targetTime + 0.15) {
             activeNotes.splice(i, 1);
             missCount++; 
             updateJudgement("MISS");
         }
     }
 
+    // ✨ 강화형 연출 1: 확장형 서클 충격파 이펙트 렌더링 루프
+    for (let r = hitRings.length - 1; r >= 0; r--) {
+        let ring = hitRings[r];
+        ring.radius += 2.5;
+        ring.alpha -= 0.05;
+        if (ring.alpha <= 0 || ring.radius >= ring.maxRadius) {
+            hitRings.splice(r, 1);
+            continue;
+        }
+        ctx.strokeStyle = ring.color;
+        ctx.globalAlpha = ring.alpha;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1.0; 
+    }
+
+    // 파티클 스파크 연출 루프
     for (let p = hitParticles.length - 1; p >= 0; p--) {
         let pt = hitParticles[p];
         pt.x += pt.vx; pt.y += pt.vy; pt.alpha -= 0.04;
         if(pt.alpha <= 0) { hitParticles.splice(p, 1); continue; }
-        ctx.fillStyle = `rgba(0, 255, 255, ${pt.alpha})`;
+        ctx.fillStyle = (pt.color || `rgba(0, 255, 255, `) + pt.alpha + ")";
         ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
     }
 
@@ -668,38 +764,78 @@ function gameLoop() {
         finishGame();
         return;
     }
-    animationId = requestAnimationFrame(gameLoop);
-}
-
-function createSparks(startX, startY) {
-    for(let i=0; i<15; i++) {
-        hitParticles.push({
-            x: startX, y: startY,
-            vx: (Math.random() - 0.5) * 8,
-            vy: (Math.random() - 0.7) * 8,
-            size: Math.random() * 3 + 1, alpha: 1.0
-        });
+    
+    if (!isPaused) {
+        animationId = requestAnimationFrame(gameLoop);
     }
 }
 
-// 라인별 최하단 단일 노트 단독 타겟 판정 엔진
+// ✨ 강화형 연출 2: 판정 결과별 맞춤 색상 및 양방향 충격파 생성기 개조
+function createSparks(startX, startY, judgment) {
+    let count = 15;
+    let colorPrefix = "rgba(0, 255, 255, "; 
+    let sizeMax = 3;
+    let ringColor = "#00ffff";
+
+    if (judgment === "PERFECT") {
+        count = 26;
+        colorPrefix = "rgba(255, 215, 0, "; // 골드
+        sizeMax = 4.2;
+        ringColor = "#ffd700";
+    } else if (judgment === "GREAT") {
+        count = 18;
+        colorPrefix = "rgba(255, 0, 255, ";  // 네온 핑크
+        sizeMax = 3.5;
+        ringColor = "#ff00ff";
+    } else if (judgment === "GOOD") {
+        count = 10;
+        colorPrefix = "rgba(0, 220, 255, ";  // 민트 스카이
+        sizeMax = 2.5;
+        ringColor = "#00dcff";
+    }
+
+    for(let i=0; i<count; i++) {
+        hitParticles.push({
+            x: startX, y: startY,
+            vx: (Math.random() - 0.5) * 9,
+            vy: (Math.random() - 0.7) * 9,
+            size: Math.random() * sizeMax + 1, 
+            alpha: 1.0,
+            color: colorPrefix
+        });
+    }
+
+    hitRings.push({
+        x: startX,
+        y: startY,
+        radius: 4,
+        maxRadius: 45,
+        alpha: 1.0,
+        color: ringColor
+    });
+}
+
+// 라인별 최하단 단일 노트 단독 타겟 판정 엔진 (싱크 연동 패치)
 function verifyHit(lane) {
-    if(!gameActive) return;
+    if(!gameActive || isPaused) return;
+    let syncTime = currentAudioTime + audioOffset;
     
     for(let i=0; i<activeNotes.length; i++) {
         let n = activeNotes[i];
         if(n.lane === lane) {
-            let timeDiff = Math.abs(n.targetTime - currentAudioTime);
+            let timeDiff = Math.abs(n.targetTime - syncTime);
             
             if(timeDiff < 0.15) { 
+                let judgeStr = "GOOD";
                 if(timeDiff < 0.05) { 
-                    updateJudgement("PERFECT"); score += 1000; perfectCount++; 
+                    judgeStr = "PERFECT"; score += 1000; perfectCount++; 
                 } else if(timeDiff < 0.10) { 
-                    updateJudgement("GREAT"); score += 500; greatCount++;
+                    judgeStr = "GREAT"; score += 500; greatCount++;
                 } else { 
-                    updateJudgement("GOOD"); score += 200; goodCount++;
+                    score += 200; goodCount++;
                 }
-                createSparks(n.x, targetY); 
+                updateJudgement(judgeStr);
+                createSparks(n.x, targetY, judgeStr); 
                 activeNotes.splice(i, 1); 
                 break;
             }
@@ -718,14 +854,17 @@ function updateJudgement(res) {
 
 async function finishGame() {
     gameActive = false;
+    isPaused = false;
     if (animationId) {
         cancelAnimationFrame(animationId);
         animationId = null;
     }
     
     const audio = document.getElementById("game-audio");
-    audio.pause();
-    audio.currentTime = 0;
+    if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+    }
     
     let englishLiveTitle = "LIVE CLEAR";
     if (goodCount === 0 && missCount === 0) {
@@ -760,8 +899,16 @@ async function finishGame() {
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
     
+    // 배속 조절 핫키
     if (e.key === "[") { adjustNoteSpeed(-0.5); return; }
     if (e.key === "]") { adjustNoteSpeed(0.5); return; }
+    
+    // 🛠️ 방향키를 이용한 싱크 옵셋 실시간 미세 하드웨어 미세 조정 매핑 (좌/우 화살표)
+    if (e.key === "ArrowLeft") { adjustAudioOffset(-0.01); return; }
+    if (e.key === "ArrowRight") { adjustAudioOffset(0.01); return; }
+
+    // ⏸️ P 키를 누르면 게임 일시정지 및 해제 토글
+    if (k === "p") { togglePauseGame(); return; }
     
     if (keyMap[k] !== undefined) {
         lanePressed[keyMap[k]] = true;
