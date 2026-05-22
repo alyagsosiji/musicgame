@@ -3,7 +3,7 @@
 // =========================================================================
 const _skyHorizonConfig = {
     ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
-    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC.jb20=", // 암호화 스트링 정밀 보정 완료
+    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=", // 암호화 스트링 정밀 보정 완료
     pi: "cmVnYW1lMDQxNg==",
     sb: "cmVnYW1lMDQxNi5maXJlYmFzZXN0b3JhZ2UuYXBw",
     mi: "MjE5Mjc1NjM2MjU1",
