@@ -38,12 +38,18 @@ window.addEventListener('keydown', function (e) {
     if (e.key === "Escape" && gameActive) { exitGameMidway(); }
 });
 
-// 전역 상태 파라미터 변수
+// 전역 상태 파라미터 변수 선언 관리부
 let isSignUpMode = false;
 let currentUser = null;
 let isAdmin = false;
 let currentPlatform = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? "Mobile" : "Desktop";
 let isAuthActionLock = false; 
+
+// [수정] 누락되어 게임 화면 프리징을 일으키던 4개의 연산 전역 변수 정상 안착
+let activeNotes = []; 
+let chartData = [];
+let selectedDifficulty = "easy";
+let popupCallback = null;
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -354,6 +360,7 @@ function startGame(diff) {
     perfectCount = 0; greatCount = 0; goodCount = 0; missCount = 0;
 
     hitParticles = [];
+    activeNotes = []; // [수정 완료] 인게임 진입 및 재시작 시 노트 대기열 안전 리셋
     lanePressed = [false, false, false, false];
     chartData = JSON.parse(rmChartSafely(charts[selectedDifficulty] || []));
 
@@ -425,7 +432,7 @@ function gameLoop() {
 
     ctx.strokeStyle = "rgba(138, 43, 226, 0.3)";
     lanes.forEach(x => {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); // [수정] ctx.stroke() 오타 전면 수리 완료
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); 
     });
 
     ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 4;
@@ -461,7 +468,8 @@ function gameLoop() {
         ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
     }
 
-    if (audio.ended) {
+    // [수정 완벽 방어] 오디오가 완전히 끝났거나, 음악 오류 발생 시 노취 대기열이 비어있으면 안전하게 판정 종료로 진입
+    if (audio.ended || (chartData.length === 0 && activeNotes.length === 0)) {
         finishGame();
         return;
     }
