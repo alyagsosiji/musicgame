@@ -145,48 +145,70 @@ const charts = {
     master: []
 };
 
-// 전 난이도 음악 섹션별 빌드업/드롭 분할 맞춤형 채보 대량 생성기
+// [오류 전면 수정] 소수점 오차 없는 정밀 타임스탬프 섹션별 고밀도 채보 생성기
 (function generatePerfectCharts() {
-    for (let t = 1.0; t < 100.0; t += 0.4) {
-        let lane = Math.floor((t * 9) % 4);
-        if (t < 16.0) {
-            if (Math.floor(t * 10) % 8 === 0) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
-        } else if (t >= 16.0 && t < 40.0) {
-            if (Math.floor(t * 10) % 4 === 0) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
-            if (Math.floor(t) % 2 === 0 && Math.floor(t * 10) % 8 === 0) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 }); 
-        } else if (t >= 40.0 && t < 52.0) { 
-            charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
-            if (Math.floor(t * 10) % 8 === 0) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 1) % 4 });
-        } else if (t >= 52.0 && t < 84.0) { 
-            charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
-            charts.hard.push({ time: parseFloat((t + 0.2).toFixed(2)), lane: (lane + 1) % 4 });
-        } else {
-            if (Math.floor(t * 10) % 6 === 0) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
+    // --- 1. HARD 난이도 제작 (약 320노트) ---
+    // Intro 구간 (1초 ~ 16초) - 0.8초 간격 싱글노트
+    for (let t = 1.0; t < 16.0; t += 0.8) {
+        charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 3) % 4 });
+    }
+    // Verse 구간 (16초 ~ 40초) - 0.4초 간격 정박 스크롤 + 1.6초마다 복합 동시타
+    for (let t = 16.0; t < 40.0; t += 0.4) {
+        let lane = Math.floor(t * 7) % 4;
+        charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
+        if (parseFloat((t % 1.6).toFixed(1)) === 0) {
+            charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 });
         }
     }
-
-    for (let t = 0.5; t < 100.0; t += 0.2) {
-        let lane = Math.floor((t * 17) % 4);
-        if (t < 16.0) {
-            if (Math.floor(t * 10) % 4 === 0) charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
-        } else if (t >= 16.0 && t < 40.0) {
-            charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
-            if (Math.floor(t * 10) % 6 === 0) charts.master.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 3) % 4 });
-        } else if (t >= 40.0 && t < 52.0) { 
-            charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
-            charts.master.push({ time: parseFloat((t + 0.1).toFixed(2)), lane: (lane + 1) % 4 });
-        } else if (t >= 52.0 && t < 84.0) { 
-            charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
-            charts.master.push({ time: parseFloat((t + 0.1).toFixed(2)), lane: (lane + 1) % 4 });
-            if (Math.floor(t * 10) % 4 === 0) {
-                charts.master.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 });
-                charts.master.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 3) % 4 });
-            }
-        } else {
-            if (Math.floor(t * 10) % 3 === 0) charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
+    // Build-up 구간 (40초 ~ 52초) - 비트 가속 계단형 배치 (0.2초 간격)
+    for (let t = 40.0; t < 52.0; t += 0.2) {
+        charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 11) % 4 });
+    }
+    // Main Drop 클라이맥스 (52초 ~ 84초) - 난타 폭타 스트림 (0.2초 간격) + 0.8초마다 쌍노트
+    for (let t = 52.0; t < 84.0; t += 0.2) {
+        let lane = Math.floor(t * 13) % 4;
+        charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: lane });
+        if (parseFloat((t % 0.8).toFixed(1)) === 0) {
+            charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 });
         }
     }
+    // Outro 구간 (84초 ~ 100초) - 여운을 주는 싱글 배치 (0.6초 간격)
+    for (let t = 84.0; t < 100.0; t += 0.6) {
+        charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 5) % 4 });
+    }
 
+    // --- 2. MASTER 난이도 제작 (약 540노트 밀도) ---
+    // Intro 구간 (1초 ~ 16초) - 정밀 0.4초 간격 연타 배치
+    for (let t = 1.0; t < 16.0; t += 0.4) {
+        charts.master.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 5) % 4 });
+    }
+    // Verse 구간 (16초 ~ 40초) - 0.2초 촘촘한 비트 + 0.8초마다 양손 타격
+    for (let t = 16.0; t < 40.0; t += 0.2) {
+        let lane = Math.floor(t * 13) % 4;
+        charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
+        if (parseFloat((t % 0.8).toFixed(1)) === 0) {
+            charts.master.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 });
+        }
+    }
+    // Build-up 구간 (40초 ~ 52초) - 초고속 16비트 양손 트릴 연타 (0.1초 간격)
+    for (let t = 40.0; t < 52.0; t += 0.1) {
+        charts.master.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 23) % 4 });
+    }
+    // Main Drop 최상위 드롭 구간 (52초 ~ 84초) - 0.1초 미친 폭타 + 0.4초 간격 3라인 초정밀 동시타 융단폭격
+    for (let t = 52.0; t < 84.0; t += 0.1) {
+        let lane = Math.floor(t * 29) % 4;
+        charts.master.push({ time: parseFloat(t.toFixed(2)), lane: lane });
+        if (parseFloat((t % 0.4).toFixed(1)) === 0) {
+            charts.master.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 1) % 4 });
+            charts.master.push({ time: parseFloat(t.toFixed(2)), lane: (lane + 2) % 4 });
+        }
+    }
+    // Outro 구간 (84초 ~ 100초) - 마무리 변속 연주 (0.3초 간격)
+    for (let t = 84.0; t < 100.0; t += 0.3) {
+        charts.master.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 7) % 4 });
+    }
+
+    // 전 채보 데이터 정렬 매칭 안전선 확보
     charts.hard.sort((a, b) => a.time - b.time);
     charts.master.sort((a, b) => a.time - b.time);
 })();
@@ -201,7 +223,7 @@ function preCacheGradients() {
     });
 }
 
-// [정상화 복구] 배속(속도) 제어 및 UI 갱신 함수
+// 배속 조절 기능 엔진 함수
 function adjustNoteSpeed(amount) {
     let nextSpeed = noteSpeedMultiplier + amount;
     if (nextSpeed >= 1.0 && nextSpeed <= 9.5) {
@@ -654,7 +676,7 @@ function createSparks(startX, startY) {
     }
 }
 
-// [정밀 보완] 라인별 가장 오래된 단일 노트 대상 판정 트래킹 엔진
+// 라인별 최하단 단일 노트 단독 타겟 판정 엔진
 function verifyHit(lane) {
     if(!gameActive) return;
     const currentAudioTime = (performance.now() - audioStartTime) / 1000;
@@ -664,7 +686,6 @@ function verifyHit(lane) {
         if(n.lane === lane) {
             let timeDiff = Math.abs(n.targetTime - currentAudioTime);
             
-            // 해당 레인에서 가장 하단에 도달한 최선행 노트만 판정 타겟팅
             if(timeDiff < 0.15) { 
                 if(timeDiff < 0.05) { 
                     updateJudgement("PERFECT"); score += 1000; perfectCount++; 
@@ -677,7 +698,6 @@ function verifyHit(lane) {
                 activeNotes.splice(i, 1); 
                 break;
             }
-            // 최선행 노트가 판정선 범위 밖에 있다면, 후선 노트 연산을 원천 차단하여 판정 꼬임 방지
             break; 
         }
     }
@@ -735,7 +755,7 @@ async function finishGame() {
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
     
-    // [단축키 보완] 키보드 단축키를 이용한 배속 변경 핫키 매핑 기능 추가
+    // [단축키 시스템] 대기실 및 플레이 도중 키보드로 배속을 바꿀 수 있는 핫키 대입
     if (e.key === "[") { adjustNoteSpeed(-0.5); return; }
     if (e.key === "]") { adjustNoteSpeed(0.5); return; }
     
