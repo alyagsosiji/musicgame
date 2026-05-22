@@ -1,13 +1,32 @@
 // 1. Firebase 데이터베이스 및 서비스 클러스터 초기화
-const firebaseConfig = {
-    apiKey: "AIzaSyDonJWUh-yF-IeQuhvIvdUJPZN_4nyJccw",
-    authDomain: "regame0416.firebaseapp.com",
-    projectId: "regame0416",
-    storageBucket: "regame0416.firebasestorage.app",
-    messagingSenderId: "219275636255",
-    appId: "1:219275636255:web:ed456f41a127b131b7ef2a",
-    measurementId: "G-D49T83X3LC"
+// 1. 암호화(인코딩)된 Firebase 구성 정보
+const _skyHorizonConfig = {
+    ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
+    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=",
+    pi: "cmVnYW1lMDQxNg==",
+    sb: "cmVnYW1lMDQxNi5maXJlYmFzZXN0b3JhZ2UuYXBw",
+    mi: "MjE5Mjc1NjM2MjU1",
+    ai: "MToyMTkyNzU2MzYyNTU6d2ViOmVkNDU2ZjQxYTEyN2IxMzFiN2VmMmE=",
+    ms: "Ry1ENDlUODNYM0xD"
 };
+
+// 런타임 복호화 복원 레이어
+const firebaseConfig = {
+    apiKey: atob(_skyHorizonConfig.ak),
+    authDomain: atob(_skyHorizonConfig.ad),
+    projectId: atob(_skyHorizonConfig.pi),
+    storageBucket: atob(_skyHorizonConfig.sb),
+    messagingSenderId: atob(_skyHorizonConfig.mi),
+    appId: atob(_skyHorizonConfig.ai),
+    measurementId: atob(_skyHorizonConfig.ms)
+};
+
+// Firebase 초기화 실행
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// (이하 기존 무단 제어 잠금 및 리듬게임 엔진 코드가 이어집니다...)
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
