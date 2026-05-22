@@ -1,7 +1,7 @@
 // 1. 암호화(인코딩)된 Firebase 구성 정보
 const _skyHorizonConfig = {
     ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
-    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=",
+    ad: "cmVnYW1lMD00MTYuZmlyZWJhc2VhcHAuY29t",
     pi: "cmVnYW1lMDQxNg==",
     sb: "cmVnYW1lMDQxNi5maXJlYmFzZXN0b3JhZ2UuYXBw",
     mi: "MjE5Mjc1NjM2MjU1",
@@ -61,11 +61,11 @@ let lastAudioTime = 0;
 let lastTimeSync = 0;
 let cachedNoteGradients = []; 
 
-let gameVolume = 0.8;          // 🔊 볼륨 설정 전역 변수
-let audioOffset = 0.000;       // 🛠️ 판정 싱크 오프셋 (초 단위)
-let isPaused = false;          // ⏸️ 일시정지 상태 변수
-let pauseStartTime = 0;        // 일시정지 시점 기록 변수
-let hitRings = [];             // ✨ 확장형 충격파 이펙트 배열
+let gameVolume = 0.8;          
+let audioOffset = 0.000;       
+let isPaused = false;          
+let pauseStartTime = 0;        
+let hitRings = [];             
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -153,7 +153,7 @@ const charts = {
     master: []
 };
 
-// 소수점 오차 없는 정밀 타임스탬프 섹션별 고밀도 채보 생성기
+// 채보 엔진
 (function generatePerfectCharts() {
     for (let t = 1.0; t < 16.0; t += 0.8) {
         charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 3) % 4 });
@@ -208,7 +208,6 @@ const charts = {
     charts.master.sort((a, b) => a.time - b.time);
 })();
 
-// 그라데이션 캐싱 (끊김 현상 방지)
 function preCacheGradients() {
     cachedNoteGradients = lanes.map(x => {
         let g = ctx.createLinearGradient(x - 40, 0, x + 40, 0);
@@ -218,7 +217,6 @@ function preCacheGradients() {
     });
 }
 
-// 배속 조절 기능 엔진 함수
 function adjustNoteSpeed(amount) {
     let nextSpeed = noteSpeedMultiplier + amount;
     if (nextSpeed >= 1.0 && nextSpeed <= 9.5) {
@@ -228,7 +226,6 @@ function adjustNoteSpeed(amount) {
     }
 }
 
-// 🛠️ 판정선 오디오 싱크 옵셋 조절 함수
 function adjustAudioOffset(amount) {
     audioOffset = parseFloat((audioOffset + amount).toFixed(3));
     const offsetDisplay = document.getElementById("offset-display-value");
@@ -237,7 +234,6 @@ function adjustAudioOffset(amount) {
     }
 }
 
-// ⏸️ 인게임 일시정지 및 재개 시스템 엔진
 function togglePauseGame() {
     if (!gameActive && !isPaused) return; 
     const audio = document.getElementById("game-audio");
@@ -267,15 +263,10 @@ function togglePauseGame() {
                 lastTimeSync += pausedDuration;
                 gameLoop();
             });
-        } else {
-            let pausedDuration = performance.now() - pauseStartTime;
-            lastTimeSync += pausedDuration;
-            gameLoop();
         }
     }
 }
 
-// 초기 로딩 시 볼륨 컨트롤러 요소 감지 연동 리스너 추가
 document.addEventListener("DOMContentLoaded", () => {
     const volSlider = document.getElementById("volume-slider");
     if (volSlider) {
@@ -288,96 +279,42 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-function showCustomAlert(title, message, isConfirm = false, callback = null) {
-    document.getElementById("popup-title").innerText = title;
-    document.getElementById("popup-message").innerText = message;
-    popupCallback = callback;
-
-    const cancelBtn = document.getElementById("popup-cancel-btn");
-    if(isConfirm) cancelBtn.classList.remove("hidden");
-    else cancelBtn.classList.add("hidden");
-    
-    document.getElementById("custom-popup").style.display = "flex";
-}
-
-function closeCustomPopup(confirmed = true) {
-    document.getElementById("custom-popup").style.display = "none";
-    if(confirmed && popupCallback) popupCallback();
-    popupCallback = null;
-}
-
-document.getElementById("popup-confirm-btn").onclick = () => closeCustomPopup(true);
-document.getElementById("popup-cancel-btn").onclick = () => closeCustomPopup(false);
-
-function openTosModal() { document.getElementById("tos-modal").style.display = "flex"; }
-function closeTosModal() { document.getElementById("tos-modal").style.display = "none"; }
-
-// SHA-256 암호화
-async function secureHash(string) {
-    if (window.crypto && crypto.subtle && crypto.subtle.digest) {
-        try {
-            const utf8 = new TextEncoder().encode(string);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        } catch (e) {}
-    }
-    const rotateRight = (n, x) => (n >>> x) | (n << (32 - x));
-    const K = [
-        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-    ];
-    let H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
-    const words = [];
-    const ascii = unescape(encodeURIComponent(string));
-    for (let i = 0; i < ascii.length; i++) words[i >> 2] |= ascii.charCodeAt(i) << (24 - (i % 4) * 8);
-    const bits = ascii.length * 8;
-    words[ascii.length >> 2] |= 0x80 << (24 - (ascii.length % 4) * 8);
-    while ((words.length * 32) % 512 !== 448) words.push(0);
-    words.push(Math.floor(bits / 4294967296)); words.push(bits & 0xffffffff);
-    
-    for (let i = 0; i < words.length; i += 16) {
-        let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
-        const stage = new Array(64);
-        for (let j = 0; j < 64; j++) {
-            if (j < 16) stage[j] = words[i + j];
-            else {
-                const s0 = rotateRight(stage[j - 15], 7) ^ rotateRight(stage[j - 15], 18) ^ (stage[j - 15] >>> 3);
-                const s1 = rotateRight(stage[j - 2], 17) ^ rotateRight(stage[j - 2], 19) ^ (stage[j - 2] >>> 10);
-                stage[j] = (stage[j - 16] + s0 + stage[j - 7] + s1) & 0xffffffff;
-            }
-            const ch = (e & f) ^ (~e & g);
-            const maj = (a & b) ^ (a & c) ^ (b & c);
-            const S0 = rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22);
-            const S1 = rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25);
-            const t1 = (h + S1 + ch + K[j] + stage[j]) & 0xffffffff;
-            const t2 = (S0 + maj) & 0xffffffff;
-            h = g; g = f; f = e; e = (d + t1) & 0xffffffff; d = c; c = b; b = a; a = (t1 + t2) & 0xffffffff;
-        }
-        H[0] = (H[0] + a) & 0xffffffff; H[1] = (H[1] + b) & 0xffffffff; H[2] = (H[2] + c) & 0xffffffff; H[3] = (H[3] + d) & 0xffffffff;
-        H[4] = (H[4] + e) & 0xffffffff; H[5] = (H[5] + f) & 0xffffffff; H[6] = (H[6] + g) & 0xffffffff; H[7] = (H[7] + h) & 0xffffffff;
-    }
-    return H.map(h => (h >>> 0).toString(16).padStart(8, '0')).join('');
-}
-
+// [기능 추가] 로그인 / 가입 모드 전환 시 이용약관 체크박스 컨테이너 제어
 function toggleAuthMode() {
     isSignUpMode = !isSignUpMode;
     document.getElementById("auth-title").innerText = isSignUpMode ? "새 여행자 가입 (회원가입)" : "우주 진입 (로그인)";
     document.getElementById("auth-toggle").innerText = isSignUpMode ? "이미 계정이 있으신가요? 로그인하기" : "새로운 여행자이신가요? 회원가입하기";
     document.getElementById("btn-primary").innerText = isSignUpMode ? "가입하기" : "진입하기";
+    
+    const tosContainer = document.getElementById("tos-container");
+    if (tosContainer) {
+        if (isSignUpMode) {
+            tosContainer.style.display = "flex"; // 회원가입일 때 보이게 처리
+        } else {
+            tosContainer.style.display = "none";  // 로그인일 때 숨기기
+            const tosCheckbox = document.getElementById("tos-checkbox");
+            if (tosCheckbox) tosCheckbox.checked = false; // 체크 상태 초기화
+        }
+    }
 }
 
+// [기능 보완] 회원가입 시 이용약관 동의 조건 강제 검증 로직 탑재
 async function handleAuth() {
     const rawId = document.getElementById("auth-id").value.trim();
     const rawPw = document.getElementById("auth-pw").value.trim();
 
     if(!rawId || !rawPw) return showCustomAlert("경고", "모든 항목을 입력해 주세요.");
+
+    // 회원가입 모드일 때 체크박스 검사 가드 발동
+    if (isSignUpMode) {
+        const tosCheckbox = document.getElementById("tos-checkbox");
+        if (tosCheckbox && !tosCheckbox.checked) {
+            return showCustomAlert("약관 동의 필요", "가입을 진행하려면 이용약관에 동의하셔야 합니다.", false, () => {
+                openTosModal(); // 확인을 누르면 약관 팝업을 바로 열어주는 유저 편의 제공
+            });
+        }
+    }
+
     if (isSignUpMode && rawPw.length < 6) {
         return showCustomAlert("경고", "비밀번호는 최소 6자리 이상 설정해야 은하 진입이 가능합니다.");
     }
@@ -466,7 +403,6 @@ function showLobby(fallbackName = "") {
 
 function startRealtimeRankings() {
     if (rankingUnsubscribe) rankingUnsubscribe();
-
     const tbody = document.getElementById("ranking-tbody");
     
     rankingUnsubscribe = db.collection("horizon_rankings")
@@ -493,7 +429,7 @@ function startRealtimeRankings() {
 }
 
 function switchAdminTab(type) {
-    document.querySelectorAll(".admin-tab-content").forEach(c => classList.remove("active"));
+    document.querySelectorAll(".admin-tab-content").forEach(c => c.classList.remove("active"));
     if(type === 'rank') document.getElementById("admin-rank-section").classList.add("active");
     if(type === 'user') document.getElementById("admin-user-section").classList.add("active");
 }
@@ -597,7 +533,6 @@ function startGame(diff) {
     lanePressed = [false, false, false, false];
     chartData = JSON.parse(rmChartSafely(charts[selectedDifficulty] || []));
 
-    // 게임 세션 시작 시 볼륨 상태 동기화 주입
     const audio = document.getElementById("game-audio");
     if (audio) audio.volume = gameVolume;
 
@@ -674,7 +609,6 @@ function gameLoop() {
     
     const audio = document.getElementById("game-audio");
     
-    // [초정밀 안티 스터터 동기화 인터폴레이션]
     if (audio.currentTime !== lastAudioTime) {
         lastAudioTime = audio.currentTime;
         lastTimeSync = performance.now();
@@ -689,9 +623,7 @@ function gameLoop() {
         }
     }
 
-    // 🛠️ 판정선 조절 오프셋 싱크 데이터 주입 연산 파트
     let syncTime = currentAudioTime + audioOffset;
-
     const currentSpeedFactor = noteSpeedMultiplier * 110; 
     const lookAheadTime = targetY / currentSpeedFactor;
 
@@ -733,7 +665,6 @@ function gameLoop() {
         }
     }
 
-    // ✨ 강화형 연출 1: 확장형 서클 충격파 이펙트 렌더링 루프
     for (let r = hitRings.length - 1; r >= 0; r--) {
         let ring = hitRings[r];
         ring.radius += 2.5;
@@ -751,7 +682,6 @@ function gameLoop() {
         ctx.globalAlpha = 1.0; 
     }
 
-    // 파티클 스파크 연출 루프
     for (let p = hitParticles.length - 1; p >= 0; p--) {
         let pt = hitParticles[p];
         pt.x += pt.vx; pt.y += pt.vy; pt.alpha -= 0.04;
@@ -764,13 +694,11 @@ function gameLoop() {
         finishGame();
         return;
     }
-    
     if (!isPaused) {
         animationId = requestAnimationFrame(gameLoop);
     }
 }
 
-// ✨ 강화형 연출 2: 판정 결과별 맞춤 색상 및 양방향 충격파 생성기 개조
 function createSparks(startX, startY, judgment) {
     let count = 15;
     let colorPrefix = "rgba(0, 255, 255, "; 
@@ -779,17 +707,17 @@ function createSparks(startX, startY, judgment) {
 
     if (judgment === "PERFECT") {
         count = 26;
-        colorPrefix = "rgba(255, 215, 0, "; // 골드
+        colorPrefix = "rgba(255, 215, 0, "; 
         sizeMax = 4.2;
         ringColor = "#ffd700";
     } else if (judgment === "GREAT") {
         count = 18;
-        colorPrefix = "rgba(255, 0, 255, ";  // 네온 핑크
+        colorPrefix = "rgba(255, 0, 255, ";  
         sizeMax = 3.5;
         ringColor = "#ff00ff";
     } else if (judgment === "GOOD") {
         count = 10;
-        colorPrefix = "rgba(0, 220, 255, ";  // 민트 스카이
+        colorPrefix = "rgba(0, 220, 255, ";  
         sizeMax = 2.5;
         ringColor = "#00dcff";
     }
@@ -806,16 +734,11 @@ function createSparks(startX, startY, judgment) {
     }
 
     hitRings.push({
-        x: startX,
-        y: startY,
-        radius: 4,
-        maxRadius: 45,
-        alpha: 1.0,
-        color: ringColor
+        x: startX, y: startY,
+        radius: 4, maxRadius: 45, alpha: 1.0, color: ringColor
     });
 }
 
-// 라인별 최하단 단일 노트 단독 타겟 판정 엔진 (싱크 연동 패치)
 function verifyHit(lane) {
     if(!gameActive || isPaused) return;
     let syncTime = currentAudioTime + audioOffset;
@@ -899,15 +822,10 @@ async function finishGame() {
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
     
-    // 배속 조절 핫키
     if (e.key === "[") { adjustNoteSpeed(-0.5); return; }
     if (e.key === "]") { adjustNoteSpeed(0.5); return; }
-    
-    // 🛠️ 방향키를 이용한 싱크 옵셋 실시간 미세 하드웨어 미세 조정 매핑 (좌/우 화살표)
     if (e.key === "ArrowLeft") { adjustAudioOffset(-0.01); return; }
     if (e.key === "ArrowRight") { adjustAudioOffset(0.01); return; }
-
-    // ⏸️ P 키를 누르면 게임 일시정지 및 해제 토글
     if (k === "p") { togglePauseGame(); return; }
     
     if (keyMap[k] !== undefined) {
