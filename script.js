@@ -23,7 +23,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 브라우저 내부 무단 제어 장치 잠금
+// 브라우저 내부 기능 제어 잠금
 window.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('dragstart', e => e.preventDefault());
 window.addEventListener('selectstart', e => {
@@ -38,7 +38,7 @@ window.addEventListener('keydown', function (e) {
     if (e.key === "Escape" && gameActive) { exitGameMidway(); }
 });
 
-// 핵심 제어 전역 변수
+// 전역 연산 관리자 컨텍스트 변수
 let isSignUpMode = false;
 let currentUser = null;
 let isAdmin = false;
@@ -54,14 +54,16 @@ let activeNotes = [];
 let chartData = [];
 let popupCallback = null;
 
-// [추가] 자연스러운 화면 연출을 위한 레인 상태 배열 및 파티클 리스트 변수 선언
 let lanePressed = [false, false, false, false];
 let hitParticles = [];
+
+// [추가] 유저 커스텀 배속 멀티플라이어 기본값 세팅 (기본 4.0배속 설정)
+let noteSpeedMultiplier = 4.0;
 
 const ADMIN_ID_HASH = "5101000b55bf9a95db75cfd2a6c49f12064849ade2c6c6a6f7ed0164f7fea29f";
 const ADMIN_PW_HASH = "5c8b57a6b0097c4c1542efbcc7a14d50f9e6b6693943d5c24c3c3ededaff733a";
 
-// Plum - Night Sky City 비트맵 채보 데이터 정보
+// Plum - Night Sky City 실시간 채보 비트맵 싱크 셋업 데이터
 const charts = {
     easy: [
         {time: 1.0, lane: 0}, {time: 2.2, lane: 2}, {time: 3.5, lane: 1}, {time: 4.8, lane: 3},
@@ -75,16 +77,25 @@ const charts = {
     ],
     hard: [
         {time: 0.5, lane: 0}, {time: 1.0, lane: 2}, {time: 1.5, lane: 1}, {time: 2.0, lane: 3},
-        {time: 2.5, lane: 0}, {time: 2.5, lane: 3}, {time: 2.8, lane: 1}, {time: 3.2, lane: 2}
+        {time: 2.5, lane: 0}, {time: 2.5, lane: 3}, {time: 2.8, lane: 1}, {time: 3.2, lane: 2},
+        {time: 5.0, lane: 1}, {time: 5.5, lane: 2}, {time: 6.0, lane: 0}, {time: 6.0, lane: 3}
     ],
     master: [
         {time: 0.3, lane: 0}, {time: 0.3, lane: 1}, {time: 0.6, lane: 2}, {time: 0.6, lane: 3},
-        {time: 1.2, lane: 0}, {time: 1.5, lane: 2}, {time: 1.8, lane: 1}, {time: 2.1, lane: 0}
+        {time: 1.2, lane: 0}, {time: 1.5, lane: 2}, {time: 1.8, lane: 1}, {time: 2.1, lane: 0},
+        {time: 5.0, lane: 0}, {time: 5.2, lane: 1}, {time: 5.4, lane: 2}, {time: 5.6, lane: 3}
     ]
 };
-const speedSettings = { easy: 300, normal: 400, hard: 550, master: 700 };
 
-// 커스텀 대화상자 인터페이스 빌더
+// [추가] 배속 연산 증감 제어 핸들러 (최소 1.0 ~ 최대 9.5배속 제한)
+function adjustNoteSpeed(amount) {
+    let nextSpeed = noteSpeedMultiplier + amount;
+    if (nextSpeed >= 1.0 && nextSpeed <= 9.5) {
+        noteSpeedMultiplier = nextSpeed;
+        document.getElementById("speed-display-value").innerText = noteSpeedMultiplier.toFixed(1);
+    }
+}
+
 function showCustomAlert(title, message, isConfirm = false, callback = null) {
     document.getElementById("popup-title").innerText = title;
     document.getElementById("popup-message").innerText = message;
@@ -248,7 +259,6 @@ function requestBanUser(id) {
     });
 }
 
-// 3. 고성능 동기화 리듬게임 그래픽 연산 엔진
 const lanes = [60, 160, 260, 360];
 const keyMap = { 'd': 0, 'f': 1, 'j': 2, 'k': 3 };
 let targetY = 476;
@@ -273,7 +283,6 @@ function startGame(diff) {
     lanePressed = [false, false, false, false];
     chartData = JSON.parse(JSON.stringify(charts[selectedDifficulty]));
 
-    // [추가] 브라우저 로컬 저장소를 검사하여 첫 실행 유저에게만 조작 가이드 노출
     if (!localStorage.getItem("horizon_tutorial_seen")) {
         document.getElementById("tutorial-overlay").style.display = "flex";
         if(currentPlatform === "Mobile") {
@@ -288,10 +297,9 @@ function startGame(diff) {
     }
 }
 
-// [추가] 가이드 창 닫기 및 게임 연동 실행 브릿지 함수
 function closeTutorialAndStart() {
     document.getElementById("tutorial-overlay").style.display = "none";
-    localStorage.setItem("horizon_tutorial_seen", "true"); // 로컬 스토리지에 첫 확인 저장
+    localStorage.setItem("horizon_tutorial_seen", "true");
     triggerAudioAndLoop();
 }
 
@@ -320,10 +328,11 @@ function gameLoop() {
     
     const audio = document.getElementById("game-audio");
     const currentAudioTime = audio.currentTime;
-    const currentSpeedFactor = speedSettings[selectedDifficulty];
+
+    // [중요 수정] 난이도가 아닌 유저가 선택한 배속 설정값에 비례하여 동적 스크롤 속도 인젝션 처리 연산
+    const currentSpeedFactor = noteSpeedMultiplier * 110; 
     const lookAheadTime = targetY / currentSpeedFactor;
 
-    // [추가] 리액티브 그래픽스: 사용자가 누르고 있는 라인(레인)에 그라데이션 글로우 구현
     for(let l=0; l<4; l++) {
         if(lanePressed[l]) {
             let grad = ctx.createLinearGradient(lanes[l]-50, 0, lanes[l]+50, canvas.height);
@@ -335,13 +344,11 @@ function gameLoop() {
         }
     }
 
-    // 기본 트랙 격자 라인 그리기
     ctx.strokeStyle = "rgba(138, 43, 226, 0.3)";
     lanes.forEach(x => {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     });
 
-    // 판정선 그리기
     ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(0, targetY); ctx.lineTo(canvas.width, targetY); ctx.stroke();
 
@@ -350,12 +357,12 @@ function gameLoop() {
         activeNotes.push({ targetTime: next.time, lane: next.lane, x: lanes[next.lane] });
     }
 
-    // 노트 연산 및 세련된 네온 알약 스타일 렌더링
     for (let i = activeNotes.length - 1; i >= 0; i--) {
         let n = activeNotes[i];
+        
+        // [중요 수정] 배속이 변해도 (n.targetTime == currentAudioTime)가 성립하는 정확한 찰나의 순간 n.y는 무조건 targetY에 귀속됩니다.
         n.y = targetY - (n.targetTime - currentAudioTime) * currentSpeedFactor;
 
-        // 자연스러운 입체감의 그라데이션 광원 노트
         let noteGrad = ctx.createLinearGradient(n.x - 40, n.y - 10, n.x + 40, n.y + 6);
         noteGrad.addColorStop(0, "#ff00ff");
         noteGrad.addColorStop(1, "#00ffff");
@@ -368,20 +375,12 @@ function gameLoop() {
         }
     }
 
-    // [추가] 파티클 스파크 효과 루프 드로우 연산
     for (let p = hitParticles.length - 1; p >= 0; p--) {
         let pt = hitParticles[p];
-        pt.x += pt.vx;
-        pt.y += pt.vy;
-        pt.alpha -= 0.04;
-        if(pt.alpha <= 0) {
-            hitParticles.splice(p, 1);
-            continue;
-        }
+        pt.x += pt.vx; pt.y += pt.vy; pt.alpha -= 0.04;
+        if(pt.alpha <= 0) { hitParticles.splice(p, 1); continue; }
         ctx.fillStyle = `rgba(0, 255, 255, ${pt.alpha})`;
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
     }
 
     if (audio.ended || (chartData.length === 0 && activeNotes.length === 0)) {
@@ -391,16 +390,13 @@ function gameLoop() {
     animationId = requestAnimationFrame(gameLoop);
 }
 
-// [추가] 우주 별가루 폭발 연출 엔진 알고리즘
 function createSparks(startX, startY) {
     for(let i=0; i<15; i++) {
         hitParticles.push({
-            x: startX,
-            y: startY,
+            x: startX, y: startY,
             vx: (Math.random() - 0.5) * 8,
             vy: (Math.random() - 0.7) * 8,
-            size: Math.random() * 3 + 1,
-            alpha: 1.0
+            size: Math.random() * 3 + 1, alpha: 1.0
         });
     }
 }
@@ -417,16 +413,13 @@ function verifyHit(lane) {
             
             if(timeDiff < 0.05) { 
                 updateJudgement("PERFECT"); score += 1000; perfectCount++; 
-                createSparks(n.x, targetY); // 이펙트 생성 호출
-                activeNotes.splice(i,1); break;
+                createSparks(n.x, targetY); activeNotes.splice(i,1); break;
             } else if(timeDiff < 0.10) { 
                 updateJudgement("GREAT"); score += 500; 
-                createSparks(n.x, targetY);
-                activeNotes.splice(i,1); break;
+                createSparks(n.x, targetY); activeNotes.splice(i,1); break;
             } else if(timeDiff < 0.15) { 
                 updateJudgement("GOOD"); score += 200; 
-                createSparks(n.x, targetY);
-                activeNotes.splice(i,1); break;
+                createSparks(n.x, targetY); activeNotes.splice(i,1); break;
             }
         }
     }
@@ -465,11 +458,10 @@ async function finishGame() {
     });
 }
 
-// 4. 입력 장치 분할 제어 맵핑 구역 (Glow 효과 바인딩 포함)
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
     if (keyMap[k] !== undefined) {
-        lanePressed[keyMap[k]] = true; // 누름 감지
+        lanePressed[keyMap[k]] = true;
         verifyHit(keyMap[k]);
     }
 });
@@ -477,7 +469,7 @@ window.addEventListener("keydown", e => {
 window.addEventListener("keyup", e => {
     const k = e.key.toLowerCase();
     if (keyMap[k] !== undefined) {
-        lanePressed[keyMap[k]] = false; // 뗌 감지
+        lanePressed[keyMap[k]] = false;
     }
 });
 
