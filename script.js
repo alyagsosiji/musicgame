@@ -48,16 +48,16 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 let animationId;
 let gameActive = false;
-let score = 0, combo = 0, maxCombo = 0, perfectCount = 0;
-let selectedDifficulty = 'easy';
-let activeNotes = [];
-let chartData = [];
-let popupCallback = null;
+let score = 0, combo = 0, maxCombo = 0;
+
+// [보완] 리듬게임 클리어 등급 세분화를 위한 상세 판정 카운터 변수 신설
+let perfectCount = 0;
+let greatCount = 0;
+let goodCount = 0;
+let missCount = 0;
 
 let lanePressed = [false, false, false, false];
 let hitParticles = [];
-
-// [추가] 유저 커스텀 배속 멀티플라이어 기본값 세팅 (기본 4.0배속 설정)
 let noteSpeedMultiplier = 4.0;
 
 const ADMIN_ID_HASH = "5101000b55bf9a95db75cfd2a6c49f12064849ade2c6c6a6f7ed0164f7fea29f";
@@ -87,7 +87,7 @@ const charts = {
     ]
 };
 
-// [추가] 배속 연산 증감 제어 핸들러 (최소 1.0 ~ 최대 9.5배속 제한)
+// 배속 연산 증감 제어 핸들러
 function adjustNoteSpeed(amount) {
     let nextSpeed = noteSpeedMultiplier + amount;
     if (nextSpeed >= 1.0 && nextSpeed <= 9.5) {
@@ -277,8 +277,13 @@ function startGame(diff) {
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
     document.getElementById("game-screen").classList.add("active");
     
-    score = 0; combo = 0; maxCombo = 0; perfectCount = 0;
-    activeNotes = [];
+    // [보완] 새로운 인게임 시작 시 모든 세부 변수 카운터 초기화
+    score = 0; combo = 0; maxCombo = 0;
+    perfectCount = 0;
+    greatCount = 0;
+    goodCount = 0;
+    missCount = 0;
+
     hitParticles = [];
     lanePressed = [false, false, false, false];
     chartData = JSON.parse(JSON.stringify(charts[selectedDifficulty]));
@@ -329,7 +334,6 @@ function gameLoop() {
     const audio = document.getElementById("game-audio");
     const currentAudioTime = audio.currentTime;
 
-    // [중요 수정] 난이도가 아닌 유저가 선택한 배속 설정값에 비례하여 동적 스크롤 속도 인젝션 처리 연산
     const currentSpeedFactor = noteSpeedMultiplier * 110; 
     const lookAheadTime = targetY / currentSpeedFactor;
 
@@ -359,8 +363,6 @@ function gameLoop() {
 
     for (let i = activeNotes.length - 1; i >= 0; i--) {
         let n = activeNotes[i];
-        
-        // [중요 수정] 배속이 변해도 (n.targetTime == currentAudioTime)가 성립하는 정확한 찰나의 순간 n.y는 무조건 targetY에 귀속됩니다.
         n.y = targetY - (n.targetTime - currentAudioTime) * currentSpeedFactor;
 
         let noteGrad = ctx.createLinearGradient(n.x - 40, n.y - 10, n.x + 40, n.y + 6);
@@ -371,6 +373,7 @@ function gameLoop() {
 
         if (currentAudioTime > n.targetTime + 0.15) {
             activeNotes.splice(i, 1);
+            missCount++; // MISS 카운터 누적
             updateJudgement("MISS");
         }
     }
@@ -415,10 +418,10 @@ function verifyHit(lane) {
                 updateJudgement("PERFECT"); score += 1000; perfectCount++; 
                 createSparks(n.x, targetY); activeNotes.splice(i,1); break;
             } else if(timeDiff < 0.10) { 
-                updateJudgement("GREAT"); score += 500; 
+                updateJudgement("GREAT"); score += 500; greatCount++;
                 createSparks(n.x, targetY); activeNotes.splice(i,1); break;
             } else if(timeDiff < 0.15) { 
-                updateJudgement("GOOD"); score += 200; 
+                updateJudgement("GOOD"); score += 200; goodCount++;
                 createSparks(n.x, targetY); activeNotes.splice(i,1); break;
             }
         }
@@ -433,6 +436,7 @@ function updateJudgement(res) {
     document.getElementById("game-score").innerText = `SCORE: ${score}`;
 }
 
+// [수정] 게임 종료 시 조작 조건 검사 및 최종 스코어/콤보 노출 구조 고도화
 async function finishGame() {
     gameActive = false;
     cancelAnimationFrame(animationId);
@@ -441,6 +445,17 @@ async function finishGame() {
     audio.pause();
     audio.currentTime = 0;
     
+    // [핵심 변경] 사용자의 개별 정밀 조작 이력을 추적하여 결과 창 타이틀 분기 연산
+    let englishLiveTitle = "LIVE CLEAR";
+    
+    if (goodCount === 0 && missCount === 0) {
+        if (greatCount === 0 && perfectCount > 0) {
+            englishLiveTitle = "PERFECT LIVE";
+        } else {
+            englishLiveTitle = "FULL COMBO";
+        }
+    }
+
     if (currentUser && currentUser.uid !== "admin_asi") {
         await db.collection("horizon_rankings").add({
             username: currentUser.displayName,
@@ -453,9 +468,15 @@ async function finishGame() {
         });
     }
 
-    showCustomAlert("완료", `수평선 종착지에 도달했습니다. 최종 스코어: ${score}점`, false, () => {
-        showLobby();
-    });
+    // [핵심 변경] 커스텀 팝업 창에 영문 타이틀과 함께 최종 스코어 및 맥스 콤보수를 포맷팅하여 동시 송출
+    showCustomAlert(
+        englishLiveTitle, 
+        `SCORE: ${score.toLocaleString()}   |   MAX COMBO: ${maxCombo}`, 
+        false, 
+        () => {
+            showLobby();
+        }
+    );
 }
 
 window.addEventListener("keydown", e => {
