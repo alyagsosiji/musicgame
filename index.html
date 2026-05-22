@@ -97,6 +97,33 @@
             <div class="touch-zone" data-key="j">J</div>
             <div class="touch-zone" data-key="k">K</div>
         </div>
+
+        <div id="tutorial-overlay" class="tutorial-modal">
+            <div class="tutorial-content">
+                <h3>🌌 조작 가이드 (OPERATION)</h3>
+                
+                <div id="guide-desktop" class="guide-box">
+                    <p>화면에 떨어지는 노트를 판정선에 맞춰 입력하세요.</p>
+                    <div class="keyboard-graphic">
+                        <span class="key-cap">D</span>
+                        <span class="key-cap">F</span>
+                        <span class="key-cap">J</span>
+                        <span class="key-cap">K</span>
+                    </div>
+                    <p class="sub-desc">왼쪽 두 라인은 D, F / 오른쪽 두 라인은 J, K 키를 누릅니다.</p>
+                </div>
+
+                <div id="guide-mobile" class="guide-box hidden">
+                    <p>화면 하단이 4개의 구역으로 분할되어 있습니다.</p>
+                    <div class="touch-graphic">
+                        <div>1레인</div><div>2레인</div><div>3레인</div><div>4레인</div>
+                    </div>
+                    <p class="sub-desc">노트가 판정선에 닿는 순간 해당 트랙의 아래쪽 영역을 터치하세요.</p>
+                </div>
+
+                <button class="start-flight-btn" onclick="closeTutorialAndStart()">우주 비행 시작</button>
+            </div>
+        </div>
     </div>
 
     <div id="admin-modal" class="modal">
