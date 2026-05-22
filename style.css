@@ -76,6 +76,30 @@ body, html {
 .ranking-container { max-width: 850px; height: 320px; }
 .admin-box { max-width: 750px; }
 
+/* 선곡 카드 컴포넌트 디자인 */
+.song-card {
+    display: flex;
+    align-items: center;
+    background: rgba(138, 43, 226, 0.15);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 12px;
+    padding: 12px 25px;
+    margin-bottom: 20px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+}
+.music-icon { font-size: 2rem; margin-right: 15px; animation: pulse 2s infinite; }
+.song-info-meta { display: flex; flex-direction: column; text-align: left; }
+.song-title { font-size: 1.2rem; font-weight: bold; color: #00ffff; }
+.song-artist { font-size: 0.85rem; color: #b0c4de; }
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.8; }
+}
+
 input {
     width: 100%;
     padding: 12px 18px;
@@ -115,7 +139,7 @@ button:hover {
     text-decoration: underline;
 }
 
-/* 난이도 컨테이너 */
+/* 난이도 버튼 */
 .difficulty-container {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -130,13 +154,12 @@ button:hover {
 .diff-btn.hard { background: #ff007f; color: #fff; }
 .diff-btn.master { background: #7f00ff; color: #fff; }
 
-/* 테이블 스크롤 및 포맷 */
 .table-wrapper { overflow-y: auto; height: 220px; margin-top: 10px; }
 table { width: 100%; border-collapse: collapse; text-align: left; }
 th, td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; }
 th { color: #ff00ff; }
 
-/* 인게임 모바일 반응형 대응 레이아웃 */
+/* 게임 구동 구역 안정화 */
 .canvas-container {
     display: flex;
     justify-content: center;
@@ -148,7 +171,7 @@ th { color: #ff00ff; }
 #gameCanvas {
     width: 100%;
     height: 100%;
-    background: rgba(4, 2, 10, 0.9);
+    background: rgba(4, 2, 10, 0.95);
     border-left: 2px solid #8a2be2;
     border-right: 2px solid #8a2be2;
 }
@@ -168,12 +191,11 @@ th { color: #ff00ff; }
     color: rgba(255,255,255,0.3);
     font-size: 1.5rem; font-weight: bold;
 }
-.touch-zone:active {
-    background: linear-gradient(to top, rgba(0, 255, 255, 0.3), transparent);
-    color: #fff;
-}
 
-/* 관리자 모달 및 탭 */
+/* 커스텀 팝업 버튼 그룹 레이아웃 */
+.popup-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
+#popup-cancel-btn { background: #444; }
+
 .modal, .popup-modal {
     display: none; position: fixed; z-index: 100;
     left: 0; top: 0; width: 100%; height: 100%;
@@ -185,13 +207,6 @@ th { color: #ff00ff; }
 .admin-tab-content.active { display: block; }
 .close { float: right; font-size: 24px; cursor: pointer; }
 .tos-text-area { text-align: left; height: 200px; overflow-y: auto; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 6px; font-size: 0.85rem; line-height: 1.5; }
-
-/* 알림창 애니메이션 */
-.popup-content { max-width: 350px; animation: popupShow 0.25s ease-out; }
-@keyframes popupShow {
-    from { transform: scale(0.85); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-}
 
 .hidden { display: none !important; }
 
