@@ -3,7 +3,7 @@
 // =========================================================================
 const _skyHorizonConfig = {
     ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
-    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=", // 암호화 스트링 오타 정밀 교정 완료
+    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=", // 암호화 스트링 규격 오타 정밀 교정 완료!
     pi: "cmVnYW1lMDQxNg==",
     sb: "cmVnYW1lMDQxNi5maXJlYmFzZXN0b3JhZ2UuYXBw",
     mi: "MjE5Mjc1NjM2MjU1",
@@ -25,7 +25,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 📢 코드 직접 수정형 공지사항 시트 데이터베이스
+// 📢 코드 직접 수정형 공지사항 시트 데이터베이스 (유저 변경사항 100% 반영)
 const horizonNotices = [
     {
         date: "2026-05-22",
@@ -97,6 +97,7 @@ let targetY = 476;
 let lanePressed = [false, false, false, false];
 let hitParticles = [];
 let noteSpeedMultiplier = 4.0;
+let maxChartTime = 100; // 🛠️ 채보 끊김 방지용 최대 런타임 추적 변수 추가
 
 const ADMIN_ID_HASH = "5101000b55bf9a95db75cfd2a6c49f12064849ade2c6c6a6f7ed0164f7fea29f";
 const ADMIN_PW_HASH = "5c8b57a6b0097c4c1542efbcc7a14d50f9e6b6693943d5c24c3c3ededaff733a";
@@ -354,6 +355,7 @@ function handleLogout() {
     document.getElementById("auth-screen").classList.add("active");
 }
 
+// 🛠️ 대기실 이동 및 리셋 시 모바일 패널 제어 인터페이스 상태 안정화 바인딩
 function showLobby(fallbackName = "") {
     const lobbyScreen = document.getElementById("lobby-screen");
     if (!lobbyScreen) return; 
@@ -456,7 +458,12 @@ function startGame(diff) {
     score = 0; combo = 0; maxCombo = 0; perfectCount = 0; greatCount = 0; goodCount = 0; missCount = 0;
     hitParticles = []; hitRings = []; activeNotes = []; isPaused = false;
     lanePressed = [false, false, false, false];
+    
     chartData = JSON.parse(rmChartSafely(charts[selectedDifficulty] || []));
+    
+    // 🛠️ [채보 끊김 방지 수정] 현재 난이도의 마지막 노트 연주 타임스탬프를 동적으로 연산하여 가드 배치
+    maxChartTime = chartData.length > 0 ? chartData[chartData.length - 1].time : 100;
+    
     const audio = document.getElementById("game-audio"); if (audio) audio.volume = gameVolume;
 
     if (!localStorage.getItem("horizon_tutorial_seen")) {
@@ -489,10 +496,21 @@ function triggerAudioAndLoop() {
 function gameLoop() {
     if (!gameActive && !isPaused) return; if (!ctx) return; ctx.clearRect(0, 0, canvas.width, canvas.height);
     const audio = document.getElementById("game-audio");
-    if (audio && audio.currentTime !== lastAudioTime) { lastAudioTime = audio.currentTime; lastTimeSync = performance.now(); currentAudioTime = lastAudioTime; }
-    else if (audio && !audio.paused && gameActive && !isPaused) { 
-        let elapsed = (performance.now() - lastTimeSync) / 1000; 
-        currentAudioTime = lastAudioTime + elapsed; 
+    
+    let now = performance.now();
+    if (audio && !audio.paused && gameActive && !isPaused) { 
+        if (audio.currentTime !== lastAudioTime) { 
+            lastAudioTime = audio.currentTime; 
+            lastTimeSync = now; 
+            currentAudioTime = lastAudioTime; 
+        } else {
+            let elapsed = (now - lastTimeSync) / 1000; 
+            currentAudioTime = lastAudioTime + elapsed; 
+        }
+    } else if (audio && audio.paused && gameActive && !isPaused) {
+        // 🛠️ [채보 완주 최적화 보정] 오디오가 조기에 끝났더라도 타임라인 연산을 중단하지 않고 정상 흐름 유지
+        let elapsed = (now - lastTimeSync) / 1000;
+        currentAudioTime = lastAudioTime + elapsed;
     }
 
     let syncTime = currentAudioTime + audioOffset;
@@ -516,7 +534,14 @@ function gameLoop() {
         let pt = hitParticles[p]; pt.x += pt.vx; pt.y += pt.vy; pt.alpha -= 0.04; if(pt.alpha <= 0) { hitParticles.splice(p, 1); continue; }
         ctx.fillStyle = (pt.color || `rgba(0, 255, 255, `) + pt.alpha + ")"; ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
     }
-    if (audio && audio.ended) { finishGame(); return; }
+
+    // 🛠️ [채보 끊김 조기종료 버그 원천 해결 가드] 
+    // 오디오가 끝났더라도 채보 버퍼와 화면상에 활성화된 노트가 전부 연주되어 완벽하게 비었을 때 또는 곡 한계시간 연주 완료 시 게임 클리어 정산 수행
+    if ((audio && audio.ended && chartData.length === 0 && activeNotes.length === 0) || (chartData.length === 0 && activeNotes.length === 0 && syncTime > maxChartTime + 1.2)) { 
+        finishGame(); 
+        return; 
+    }
+    
     if (!isPaused) animationId = requestAnimationFrame(gameLoop);
 }
 
@@ -636,7 +661,6 @@ document.addEventListener("DOMContentLoaded", () => {
     canvas = document.getElementById("gameCanvas"); 
     if (canvas) {
         ctx = canvas.getContext("2d"); 
-        // 🛠️ 모바일 브라우저 하드웨어 줌 및 제스처 오버라이드 잠금
         canvas.style.touchAction = "none";
     }
     fitCanvasSize();
@@ -677,11 +701,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const cancelBtn = document.getElementById("popup-cancel-btn");
     if (cancelBtn) cancelBtn.onclick = () => closeCustomPopup(false);
 
-    // 🛠️ [모바일 최적화 완결] 터치 패널 반응성 300ms 무지연 설계 구축
     document.querySelectorAll(".touch-zone").forEach(z => {
         const currentLane = keyMap[z.getAttribute("data-key")];
-        
-        // 스크롤 제스처가 캔버스 영역을 침범하여 판정이 끊기는 버그 방어
         z.style.touchAction = "none";
 
         z.addEventListener("touchstart", e => { 
