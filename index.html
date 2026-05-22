@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
-<body oncontextmenu="return false" onselectstart="return false" ondragstart="return false">
+<body>
 
     <div class="stars"></div>
     <div class="twinkling"></div>
@@ -22,13 +22,14 @@
             <input type="password" id="auth-pw" placeholder="비밀번호를 입력하세요">
             <button id="btn-primary" onclick="handleAuth()">확인</button>
             <p id="auth-toggle" onclick="toggleAuthMode()">새로운 여행자이신가요? 회원가입하기</p>
+            <p id="tos-view-btn" onclick="openTosModal()">이용약관 보기</p>
         </div>
     </div>
 
     <div id="lobby-screen" class="screen">
         <div class="lobby-header">
             <span id="user-welcome">환영합니다!</span>
-            <button id="btn-admin" class="hidden" onclick="openAdminPanel()">관리자 패널</button>
+            <button id="btn-admin" class="hidden" onclick="openAdminPanel()">우주 관리실</button>
             <button onclick="handleLogout()">로그아웃</button>
         </div>
         
@@ -55,8 +56,7 @@
                             <th>접속 기기</th>
                         </tr>
                     </thead>
-                    <tbody id="ranking-tbody">
-                        </tbody>
+                    <tbody id="ranking-tbody"></tbody>
                 </table>
             </div>
         </div>
@@ -69,34 +69,63 @@
             <div id="game-judge">READY</div>
         </div>
         
-        <canvas id="gameCanvas"></canvas>
+        <div class="canvas-container">
+            <canvas id="gameCanvas"></canvas>
+        </div>
         
         <div class="mobile-controls">
-            <div class="touch-zone" data-key="d"></div>
-            <div class="touch-zone" data-key="f"></div>
-            <div class="touch-zone" data-key="j"></div>
-            <div class="touch-zone" data-key="k"></div>
+            <div class="touch-zone" data-key="d">D</div>
+            <div class="touch-zone" data-key="f">F</div>
+            <div class="touch-zone" data-key="j">J</div>
+            <div class="touch-zone" data-key="k">K</div>
         </div>
     </div>
 
     <div id="admin-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content admin-box">
             <h2>우주 관리실 <span class="close" onclick="closeAdminPanel()">&times;</span></h2>
-            <div class="admin-section">
-                <h3>유저 및 랭킹 데이터 관리</h3>
+            <div class="admin-tabs">
+                <button onclick="switchAdminTab('rank')">랭킹 관리</button>
+                <button onclick="switchAdminTab('user')">유저 관리</button>
+            </div>
+            
+            <div id="admin-rank-section" class="admin-tab-content active">
+                <h3>점수 기록 제어</h3>
                 <div class="table-wrapper">
                     <table>
-                        <thead>
-                            <tr>
-                                <th>유저 ID</th>
-                                <th>점수</th>
-                                <th>난이도</th>
-                                <th>작업</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-tbody"></tbody>
+                        <thead><tr><th>유저 ID</th><th>점수</th><th>난이도</th><th>작업</th></tr></thead>
+                        <tbody id="admin-ranking-tbody"></tbody>
                     </table>
                 </div>
+            </div>
+
+            <div id="admin-user-section" class="admin-tab-content">
+                <h3>등록된 여행자 명단</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>유저 식별 정보</th><th>최근 기록 여부</th><th>작업</th></tr></thead>
+                        <tbody id="admin-user-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-popup" class="popup-modal">
+        <div class="popup-content">
+            <h3 id="popup-title">알림</h3>
+            <p id="popup-message">내용문구</p>
+            <button onclick="closeCustomPopup()">확인</button>
+        </div>
+    </div>
+
+    <div id="tos-modal" class="modal">
+        <div class="modal-content">
+            <h2>서비스 이용약관 <span class="close" onclick="closeTosModal()">&times;</span></h2>
+            <div class="tos-text-area">
+                <strong>제 1 조 (목적)</strong><br>본 약관은 '수평선 너머의 리듬게임'이 제공하는 제반 서비스의 이용조건 및 절차를 규정합니다.<br><br>
+                <strong>제 2 조 (이용계약의 체결)</strong><br>회원가입 시 가상의 식별정보와 해싱 암호화 처리된 계정이 생성됩니다.<br><br>
+                <strong>제 3 조 (데이터 관리)</strong><br>매크로, 대리 플레이 등 부정행위 적발 시 관리자 '아시'에 의해 계정 및 점수가 통보 없이 말소될 수 있습니다.
             </div>
         </div>
     </div>
