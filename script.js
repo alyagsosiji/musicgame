@@ -1,9 +1,9 @@
 // =========================================================================
-// 1. 수평선 은하 시스템 환경 설정 및 파이어베이스 코어 구성
+// 1. 수평선 은하 시스템 환경 설정 및 파이어베이스 코어 구성 (오타 완벽 박멸)
 // =========================================================================
 const _skyHorizonConfig = {
     ak: "QUl6YVN5RG9uSldVaC15Ri1JZVF1aHZJdmRVSlBaTl80bnlKY2N3",
-    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC.jb20=",
+    ad: "cmVnYW1lMDQxNi5maXJlYmFzZWFwcC5jb20=", // 마침표 오타 정밀 수정 완료
     pi: "cmVnYW1lMDQxNg==",
     sb: "cmVnYW1lMDQxNi5maXJlYmFzZXN0b3JhZ2UuYXBw",
     mi: "MjE5Mjc1NjM2MjU1",
@@ -25,22 +25,22 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 📢 [수정 가능 영역] 직접 작성하는 코드 기반 공지사항 시트 데이터베이스
+// 📢 코드 직접 수정형 공지사항 시트 데이터베이스
 const horizonNotices = [
     {
         date: "2026-05-22",
         title: "🚀 수평선(Horizon) 은하 서비스 정식 가동",
-        content: "여행자 여러분 환영합니다! Plum 작곡가님의 'Night Sky City' 곡을 이용한 리듬게임이 가동되었습니다. 은하 필드에서의 멋진 연주를 기대합니다."
+        content: "여행자 여러분 환영합니다! Plum 작곡가님의 'Night Sky City' 공식 채보 시트를 기반으로 빌드된 하이엔드 웹 리듬게임 아키텍처가 정식 가동되었습니다."
     },
     {
         date: "2026-05-22",
         title: "🛠️ 시스템 대규모 기능 확장 패치 완료 리포트",
-        content: "유저 편의 및 연출 강화를 위해 [볼륨 조절 슬라이더 슬롯], [인게임 일시정지 및 복구(P 키)], [오디오 장치 밀림 미세 제어 싱크 Offset(◀/▶ 키)], [판정 색상별 지향성 확산 충격파 링 이펙트] 4대 편의 기능의 하드웨어 최적화 융합이 완벽하게 완료되었습니다."
+        content: "[볼륨 조절 슬라이더], [인게임 일시정지(P 키)], [싱크 미세 제어 Offset(◀/▶ 키)], [판정 색상별 확산 충격파 링 이펙트] 4대 편의 기능의 결합이 완료되었습니다."
     },
     {
         date: "2026-05-19",
         title: "🔒 여행자 개인정보 안심 보안 수집 프로토콜",
-        content: "본 시스템은 가입 시 실제 이메일을 일절 요구하거나 수집하지 않으며 오직 닉네임 해싱 가상 세션 식별 키로만 매핑됩니다. 따라서 비밀번호 분실 시 복구가 원천적으로 불가하오니 분실에 각별히 주의하시기 바랍니다."
+        content: "본 시스템은 실제 이메일을 일절 수집하지 않으며 오직 닉네임 해싱 식별자로만 매핑됩니다. 비밀번호 분실 시 복구가 불가하오니 관리에 유의하시기 바랍니다."
     }
 ];
 
@@ -165,7 +165,7 @@ const charts = {
     master: []
 };
 
-// 하드/마스터 고밀도 채보 자동 빌더
+// 하드/마스터 고밀도 채보 자동 생성기
 (function generatePerfectCharts() {
     for (let t = 1.0; t < 16.0; t += 0.8) charts.hard.push({ time: parseFloat(t.toFixed(2)), lane: Math.floor(t * 3) % 4 });
     for (let t = 16.0; t < 40.0; t += 0.4) {
@@ -208,6 +208,7 @@ function preCacheGradients() {
     });
 }
 
+// 🛠️ [복구 완료] 배속 조절 기능 엔진 함수
 function adjustNoteSpeed(amount) {
     let nextSpeed = noteSpeedMultiplier + amount;
     if (nextSpeed >= 1.0 && nextSpeed <= 9.5) {
@@ -217,6 +218,7 @@ function adjustNoteSpeed(amount) {
     }
 }
 
+// 🛠️ [복구 완료] 판정선 오디오 싱크 옵셋 조절 함수
 function adjustAudioOffset(amount) {
     audioOffset = parseFloat((audioOffset + amount).toFixed(3));
     const offsetDisplay = document.getElementById("offset-display-value");
@@ -291,7 +293,7 @@ function toggleAuthMode() {
     }
 }
 
-// 🔒 [요청사항 완벽 반영] 체크 안하고 가입버튼 클릭 시 자체 안내 알림 발동 및 모달 연동
+// 🔒 [요청사항 반영] 체크 해제 후 가입 시 자체 알림팝업 강제 검증 프로토콜
 async function handleAuth() {
     const rawId = document.getElementById("auth-id").value.trim();
     const rawPw = document.getElementById("auth-pw").value.trim();
@@ -606,26 +608,36 @@ async function secureHash(string) {
 }
 
 // =========================================================================
-// 5. 윈도우 스코프 매핑 및 하드웨어 라이프사이클 초기화 시점 보호 가드
+// 5. 윈도우 스코프 안전 바인딩 및 초기화 가드 레이어
 // =========================================================================
 document.addEventListener("DOMContentLoaded", () => {
-    // 캔버스 바인딩
     canvas = document.getElementById("gameCanvas"); 
     if (canvas) ctx = canvas.getContext("2d"); 
     fitCanvasSize();
 
-    // 윈도우 글로벌 스코프 안전 바인딩 (인라인 HTML onclick 완벽 연동 보장)
-    window.showCustomAlert = showCustomAlert; window.closeCustomPopup = closeCustomPopup;
-    window.openTosModal = openTosModal; window.closeTosModal = closeTosModal;
-    window.toggleAuthMode = toggleAuthMode; window.handleAuth = handleAuth;
-    window.handleLogout = handleLogout; window.switchAdminTab = switchAdminTab;
-    window.openAdminPanel = openAdminPanel; window.closeAdminPanel = closeAdminPanel;
-    window.requestDeleteRank = requestDeleteRank; window.requestBanUser = requestBanUser;
-    window.openNoticeModal = openNoticeModal; window.closeNoticeModal = closeNoticeModal;
-    window.startGame = startGame; window.closeTutorialAndStart = closeTutorialAndStart;
+    // 윈도우 글로벌 명시적 매핑 (인라인 HTML onclick 크래시 철저 방어)
+    window.showCustomAlert = showCustomAlert; 
+    window.closeCustomPopup = closeCustomPopup;
+    window.openTosModal = openTosModal; 
+    window.closeTosModal = closeTosModal;
+    window.openNoticeModal = openNoticeModal; 
+    window.closeNoticeModal = closeNoticeModal;
+    window.toggleAuthMode = toggleAuthMode; 
+    window.handleAuth = handleAuth;
+    window.handleLogout = handleLogout; 
+    window.switchAdminTab = switchAdminTab;
+    window.openAdminPanel = openAdminPanel; 
+    window.closeAdminPanel = closeAdminPanel;
+    window.requestDeleteRank = requestDeleteRank; 
+    window.requestBanUser = requestBanUser;
+    window.startGame = startGame; 
+    window.closeTutorialAndStart = closeTutorialAndStart;
     window.exitGameMidway = exitGameMidway;
+    window.togglePauseGame = togglePauseGame;
+    window.adjustNoteSpeed = adjustNoteSpeed;
+    window.adjustAudioOffset = adjustAudioOffset;
 
-    // 볼륨 조절 슬라이더 리스너 초기화
+    // 볼륨 조절 슬라이더 리스너 동기화
     const volSlider = document.getElementById("volume-slider");
     if (volSlider) {
         volSlider.value = gameVolume;
@@ -636,14 +648,14 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 모바일 터치 패널 이벤트 매핑 초기화
+    // 모바일 터치 패널 이벤트 매핑
     document.querySelectorAll(".touch-zone").forEach(z => {
         const currentLane = keyMap[z.getAttribute("data-key")];
         z.addEventListener("touchstart", e => { e.preventDefault(); lanePressed[currentLane] = true; verifyHit(currentLane); });
         z.addEventListener("touchend", e => { e.preventDefault(); lanePressed[currentLane] = false; });
     });
 
-    // 🔒 DOM 구성 완료 직후 레이스컨디션 없이 파이어베이스 인증 감지기 가동
+    // 🔒 DOM 구성 완료 직후 레이스 컨디션 없이 세션 감지기 안전 시동
     auth.onAuthStateChanged((user) => { 
         if (!isAdmin && !isAuthActionLock) {
             if (user) { currentUser = user; showLobby(); } 
