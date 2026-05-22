@@ -105,7 +105,6 @@ body, html {
     100% { transform: scale(1); opacity: 0.8; }
 }
 
-/* [추가] 배속 패널 레이아웃 스타일 구조 디자인 정의 */
 .speed-controller-wrapper {
     display: flex;
     align-items: center;
