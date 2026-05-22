@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
-<body>
+<body oncontextmenu="return false" onselectstart="return false" ondragstart="return false">
 
     <div class="stars"></div>
     <div class="twinkling"></div>
@@ -33,6 +33,14 @@
             <button onclick="handleLogout()">로그아웃</button>
         </div>
         
+        <div class="song-card">
+            <div class="music-icon">🌌</div>
+            <div class="song-info-meta">
+                <span class="song-title">Night Sky City</span>
+                <span class="song-artist">Plum (2026)</span>
+            </div>
+        </div>
+
         <h1 class="glow-text small">공간 선택 (DIFFICULTY)</h1>
         <div class="difficulty-container">
             <button class="diff-btn easy" onclick="startGame('easy')">EASY</button>
@@ -103,7 +111,7 @@
                 <h3>등록된 여행자 명단</h3>
                 <div class="table-wrapper">
                     <table>
-                        <thead><tr><th>유저 식별 정보</th><th>최근 기록 여부</th><th>작업</th></tr></thead>
+                        <thead><tr><th>유저 식별 정보</th><th>상태</th><th>작업</th></tr></thead>
                         <tbody id="admin-user-tbody"></tbody>
                     </table>
                 </div>
@@ -115,7 +123,10 @@
         <div class="popup-content">
             <h3 id="popup-title">알림</h3>
             <p id="popup-message">내용문구</p>
-            <button onclick="closeCustomPopup()">확인</button>
+            <div id="popup-btn-group" class="popup-buttons">
+                <button id="popup-confirm-btn" onclick="closeCustomPopup()">확인</button>
+                <button id="popup-cancel-btn" class="hidden">취정</button>
+            </div>
         </div>
     </div>
 
@@ -124,13 +135,14 @@
             <h2>서비스 이용약관 <span class="close" onclick="closeTosModal()">&times;</span></h2>
             <div class="tos-text-area">
                 <strong>제 1 조 (목적)</strong><br>본 약관은 '수평선 너머의 리듬게임'이 제공하는 제반 서비스의 이용조건 및 절차를 규정합니다.<br><br>
-                <strong>제 2 조 (이용계약의 체결)</strong><br>회원가입 시 가상의 식별정보와 해싱 암호화 처리된 계정이 생성됩니다.<br><br>
-                <strong>제 3 조 (데이터 관리)</strong><br>매크로, 대리 플레이 등 부정행위 적발 시 관리자 '아시'에 의해 계정 및 점수가 통보 없이 말소될 수 있습니다.
+                <strong>제 2 조 (이용계약의 체결)</strong><br>회원가입 시 가상의 식별정보와 해싱 암호화 처리된 계정이 생성되며 개인정보 보호 규정을 엄격히 준수합니다.<br><br>
+                <strong>제 3 조 (데이터 관리 및 부정행위 제한)</strong><br>매크로, 핵, 소스코드 변조 등 정상적이지 않은 경로로 점수를 조작하는 행위 적발 시 관리자 '아시'에 의해 계정 및 점수가 별도의 통보 없이 영구 말소될 수 있습니다.<br><br>
+                <strong>제 4 조 (콘텐츠 보호)</strong><br>본 사이트 내 음원 리소스 및 연산 시스템의 무단 도용을 막기 위해 개발자 도구 및 마우스 제어 기능이 시스템적으로 잠금 처리됩니다.
             </div>
         </div>
     </div>
 
-    <audio id="game-audio" src="music.mp3" preload="auto"></audio>
+    <audio id="game-audio" src="Night_Sky_City_2026_Plum.mp3" preload="auto"></audio>
 
     <script src="app.js"></script>
 </body>
