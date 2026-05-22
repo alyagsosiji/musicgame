@@ -19,8 +19,8 @@
         <div class="auth-box">
             <h2 id="auth-title">우주 진입 (로그인)</h2>
             <div class="input-group">
-                <input type="text" id="auth-id" placeholder="아이디를 입력하세요">
-                <input type="password" id="auth-pw" placeholder="비밀번호를 입력하세요">
+                <input type="text" id="auth-id" placeholder="아이디를 입력하세요" autocomplete="off">
+                <input type="password" id="auth-pw" placeholder="비밀번호를 입력하세요" autocomplete="off">
             </div>
             <button id="btn-primary" class="menu-btn main-action" onclick="handleAuth()">진입하기</button>
             <div class="auth-footer">
@@ -121,7 +121,7 @@
                 <h3>등록된 여행자 명단</h3>
                 <div class="table-wrapper">
                     <table>
-                        <thead><tr><th>유저 식별 정보</th><th>상태</th><th>작업</th></tr></thead>
+                        <thead><tr><th>유저 ID</th><th>상태</th><th>작업</th></tr></thead>
                         <tbody id="admin-user-tbody"></tbody>
                     </table>
                 </div>
@@ -154,6 +154,6 @@
 
     <audio id="game-audio" src="Night_Sky_City_2026_Plum.mp3" preload="auto"></audio>
 
-    <script src="script.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
