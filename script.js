@@ -126,10 +126,12 @@ async function secureHash(string) {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// [수정] 토글 모드 변경 시 핵심 액션 버튼의 글자도 유기적으로 변경되도록 설계
 function toggleAuthMode() {
     isSignUpMode = !isSignUpMode;
     document.getElementById("auth-title").innerText = isSignUpMode ? "새 여행자 가입 (회원가입)" : "우주 진입 (로그인)";
     document.getElementById("auth-toggle").innerText = isSignUpMode ? "이미 계정이 있으신가요? 로그인하기" : "새로운 여행자이신가요? 회원가입하기";
+    document.getElementById("btn-primary").innerText = isSignUpMode ? "가입하기" : "진입하기";
 }
 
 async function handleAuth() {
@@ -137,6 +139,11 @@ async function handleAuth() {
     const rawPw = document.getElementById("auth-pw").value.trim();
 
     if(!rawId || !rawPw) return showCustomAlert("경고", "모든 항목을 입력해 주세요.");
+    
+    // [보안/오류수정] 파이어베이스 기본 요건인 6자리 규격 사전 필터링 장치 구축
+    if (isSignUpMode && rawPw.length < 6) {
+        return showCustomAlert("경고", "비밀번호는 최소 6자리 이상 설정해야 은하 진입이 가능합니다.");
+    }
 
     const inputIdHash = await secureHash(rawId);
     const inputPwHash = await secureHash(rawPw);
@@ -145,11 +152,12 @@ async function handleAuth() {
         isAdmin = true;
         currentUser = { uid: "admin_asi", displayName: "아시" };
         document.getElementById("btn-admin").classList.remove("hidden");
-        showLobby();
+        showLobby(rawId);
         return;
     }
 
-    const secureEmail = `${await secureHash(rawId.toLowerCase())}@horizon.com`;
+    // 이메일 local-part 규격 안정성을 위해 해시 앞 32글자 커팅 바인딩
+    const secureEmail = `${(await secureHash(rawId.toLowerCase())).slice(0, 32)}@horizon.com`;
     
     try {
         if (isSignUpMode) {
@@ -160,16 +168,20 @@ async function handleAuth() {
                 joinedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             showCustomAlert("성공", "수평선 너머 은하에 가입되었습니다.");
+            showLobby(rawId);
         } else {
             await auth.signInWithEmailAndPassword(secureEmail, rawPw);
+            showLobby(rawId);
         }
     } catch (error) {
         showCustomAlert("오류", "계정 식별에 실패했습니다: " + error.message);
     }
 }
 
+// [수정] 리액티브 인증 모듈: 어드민 활동 세션 도중 파이어베이스가 강제 오버라이드 처리를 유발하지 않도록 격리
 auth.onAuthStateChanged((user) => {
-    if (user && !isAdmin) {
+    if (isAdmin) return; 
+    if (user) {
         currentUser = user;
         showLobby();
     }
@@ -184,10 +196,13 @@ function handleLogout() {
     document.getElementById("auth-screen").classList.add("active");
 }
 
-function showLobby() {
+// [수정] 비동기 동기화 튜닝: 첫 회원가입 절차 도중 displayName이 미처 도달하지 못해 null로 렌더링되던 버그를 완벽 엄호
+function showLobby(fallbackName = "") {
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
     document.getElementById("lobby-screen").classList.add("active");
-    document.getElementById("user-welcome").innerText = `반갑습니다, ${currentUser.displayName} 여행자님!`;
+    
+    const finalRenderName = currentUser ? (currentUser.displayName || fallbackName || "여행자") : (fallbackName || "여행자");
+    document.getElementById("user-welcome").innerText = `반갑습니다, ${finalRenderName} 여행자님!`;
     loadRankings();
 }
 
@@ -270,7 +285,6 @@ function fitCanvasSize() {
 window.addEventListener('resize', fitCanvasSize);
 
 function startGame(diff) {
-    // [안정화 보완] 기존에 실행 중이던 애니메이션 프레임이 있다면 강제 격리 파기
     if (animationId) {
         cancelAnimationFrame(animationId);
         animationId = null;
@@ -313,10 +327,7 @@ function closeTutorialAndStart() {
 }
 
 function triggerAudioAndLoop() {
-    // [안정화 보완] 혹시 모를 중복 루프 방지 처리 강화
-    if (animationId) {
-        cancelAnimationFrame(animationId);
-    }
+    if (animationId) cancelAnimationFrame(animationId);
     gameActive = true;
     const audio = document.getElementById("game-audio");
     audio.currentTime = 0;
@@ -459,18 +470,14 @@ async function finishGame() {
     audio.currentTime = 0;
     
     let englishLiveTitle = "LIVE CLEAR";
-    
     if (goodCount === 0 && missCount === 0) {
-        if (greatCount === 0 && perfectCount > 0) {
-            englishLiveTitle = "PERFECT LIVE";
-        } else {
-            englishLiveTitle = "FULL COMBO";
-        }
+        if (greatCount === 0 && perfectCount > 0) englishLiveTitle = "PERFECT LIVE";
+        else englishLiveTitle = "FULL COMBO";
     }
 
     if (currentUser && currentUser.uid !== "admin_asi") {
         await db.collection("horizon_rankings").add({
-            username: currentUser.displayName,
+            username: currentUser.displayName || "여행자",
             score: score,
             maxCombo: maxCombo,
             perfectCount: perfectCount,
